@@ -91,7 +91,7 @@ wheels = [
 [[package]]
 name = "emqx-knowledge-base"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "openai" },
     { name = "pgvector" },
@@ -110,6 +110,11 @@ dev = [
     { name = "pytest" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=23.7.0" },
@@ -119,12 +124,15 @@ requires-dist = [
     { name = "pgvector", specifier = ">=0.2.3" },
     { name = "psycopg", extras = ["binary", "pool"], specifier = ">=3.1.12" },
     { name = "pydantic", specifier = ">=2.4.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.4.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.5" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "slack-bolt", specifier = ">=1.18.0" },
     { name = "slack-sdk", specifier = ">=3.21.0" },
 ]
 provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=8.3.5" }]
 
 [[package]]
 name = "h11"

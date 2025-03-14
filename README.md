@@ -110,8 +110,7 @@ For Kubernetes-related questions, include terms like "Kubernetes", "K8s", or "Op
 ### Running Tests
 
 ```bash
-uv pip install -e ".[dev]"
-uv tool run pytest
+uv run pytest
 ```
 
 ### Code Formatting & Linting

@@ -36,7 +36,7 @@ class TestOpenAIService:
         # Mock the OpenAI client
         mock_client = MagicMock()
         mock_response = MagicMock()
-        mock_response.content = "This is a test response."
+        mock_response.output_text = "This is a test response."
         mock_client.responses.create.return_value = mock_response
 
         # Create the service with the mock client

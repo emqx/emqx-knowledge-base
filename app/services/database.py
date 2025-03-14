@@ -16,7 +16,7 @@ class DatabaseService:
 
     def __init__(self):
         """Initialize the database service."""
-        self.pool = ConnectionPool(config.database_url, min_size=1, max_size=10)
+        self.pool = ConnectionPool(config.database_url, min_size=1, max_size=10, open=True)
         self._initialize_database()
 
     def _initialize_database(self):
