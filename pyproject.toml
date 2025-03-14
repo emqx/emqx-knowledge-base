@@ -1,0 +1,30 @@
+[project]
+name = "emqx-knowledge-base"
+version = "0.1.0"
+description = "Slack bot for collecting and retrieving knowledge using embeddings"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "slack-bolt>=1.18.0",
+    "slack-sdk>=3.21.0",
+    "openai>=1.3.0",
+    "psycopg[binary,pool]>=3.1.12",
+    "pgvector>=0.2.3",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "black>=23.7.0",
+    "isort>=5.12.0",
+    "mypy>=1.5.0",
+]
+
+[tool.black]
+line-length = 100
+
+[tool.isort]
+profile = "black"
+line_length = 100
