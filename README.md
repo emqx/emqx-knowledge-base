@@ -15,17 +15,17 @@ A Slack bot that collects problems and solutions from Slack threads and responds
 
 ### Prerequisites
 
-- Python 3.12+
-- PostgreSQL with pg_vector extension
-- Slack App with appropriate permissions
-- OpenAI API key
+- [Python 3.12+](https://www.python.org/downloads/) - The programming language used
+- [PostgreSQL](https://www.postgresql.org/download/) with [pg_vector](https://github.com/pgvector/pgvector) extension - Database for storing embeddings
+- [Slack App](https://api.slack.com/apps) with appropriate permissions - For bot integration
+- [OpenAI API key](https://platform.openai.com/api-keys) - For embeddings and response generation
 - [uv](https://github.com/astral-sh/uv) - Fast Python package installer and resolver
 
 ### Installation
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/emqx-knowledge-base.git
+   git clone https://github.com/emqx/emqx-knowledge-base.git
    cd emqx-knowledge-base
    ```
 
@@ -55,7 +55,6 @@ A Slack bot that collects problems and solutions from Slack threads and responds
    - `chat:write`
    - `reactions:read`
    - `reactions:write`
-   - `threads:read`
 3. Enable Socket Mode and Event Subscriptions
 4. Subscribe to the following events:
    - `app_mention`
