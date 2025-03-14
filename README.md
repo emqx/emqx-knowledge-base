@@ -5,9 +5,11 @@ A Slack bot that collects problems and solutions from Slack threads and responds
 ## Features
 
 - **Knowledge Collection**: Users can explicitly request to save valuable Slack threads to the knowledge base
+- **Thread Analysis**: Analyze ongoing threads to provide assistance without saving them
 - **Question Answering**: Users can ask questions and get responses based on the collected knowledge
 - **Vector Search**: Uses PostgreSQL with pg_vector for efficient similarity search
 - **OpenAI Integration**: Leverages OpenAI's Response API for generating high-quality answers
+- **Documentation Awareness**: References official EMQX documentation when appropriate
 
 ## Setup
 
@@ -17,6 +19,7 @@ A Slack bot that collects problems and solutions from Slack threads and responds
 - PostgreSQL with pg_vector extension
 - Slack App with appropriate permissions
 - OpenAI API key
+- [uv](https://github.com/astral-sh/uv) - Fast Python package installer and resolver
 
 ### Installation
 
@@ -26,26 +29,20 @@ A Slack bot that collects problems and solutions from Slack threads and responds
    cd emqx-knowledge-base
    ```
 
-2. Set up a virtual environment:
+1. Install dependencies with uv:
    ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   uv pip install -e .
    ```
 
-3. Install dependencies:
-   ```bash
-   pip install -e .
-   ```
+1. Create a `.env` file based on `.env.example` and fill in your credentials.
 
-4. Create a `.env` file based on `.env.example` and fill in your credentials.
-
-5. Set up the PostgreSQL database with pg_vector:
+1. Set up the PostgreSQL database with pg_vector:
    ```bash
    # Start PostgreSQL with Docker (optional)
    docker-compose up -d
    
    # Initialize the database
-   python scripts/init_db.py
+   uv run scripts/init_db.py
    ```
 
 ### Slack App Configuration
@@ -58,6 +55,7 @@ A Slack bot that collects problems and solutions from Slack threads and responds
    - `chat:write`
    - `reactions:read`
    - `reactions:write`
+   - `threads:read`
 3. Enable Socket Mode and Event Subscriptions
 4. Subscribe to the following events:
    - `app_mention`
@@ -70,7 +68,7 @@ A Slack bot that collects problems and solutions from Slack threads and responds
 ### Starting the Bot
 
 ```bash
-python main.py
+uv run main.py
 ```
 
 ### Saving Knowledge
@@ -79,8 +77,17 @@ To save a thread to the knowledge base, add a reaction with the 📚 (books) emo
 
 Alternatively, mention the bot with the command:
 ```
-@KnowledgeBot save this thread
+@KnowledgeBot save
 ```
+
+### Analyzing Threads
+
+To get assistance with an ongoing thread without saving it, mention the bot with:
+```
+@KnowledgeBot help with this
+```
+
+Or similar phrases like "analyze this thread", "what's happening here?", etc.
 
 ### Asking Questions
 
@@ -89,20 +96,30 @@ To ask a question, mention the bot:
 @KnowledgeBot What's the solution for [your question here]?
 ```
 
+For version-specific questions, include the version number:
+```
+@KnowledgeBot How to configure authentication in EMQX 5.0?
+```
+
+For Kubernetes-related questions, include terms like "Kubernetes", "K8s", or "Operator":
+```
+@KnowledgeBot How to deploy EMQX on Kubernetes?
+```
+
 ## Development
 
 ### Running Tests
 
 ```bash
-pip install -e ".[dev]"
-pytest
+uv pip install -e ".[dev]"
+uv tool run pytest
 ```
 
-### Code Formatting
+### Code Formatting & Linting
 
 ```bash
-black .
-isort .
+uv tool run ruff check
+uv tool run ruff check --fix
 ```
 
 ## License

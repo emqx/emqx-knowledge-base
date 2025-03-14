@@ -1,6 +1,5 @@
 """Configuration module for the application."""
 import os
-from typing import Optional
 
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field

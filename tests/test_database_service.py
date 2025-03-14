@@ -1,10 +1,8 @@
 """Tests for the database service."""
 import os
-import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
-import psycopg
 from psycopg_pool import ConnectionPool
 
 from app.models.knowledge import KnowledgeEntry

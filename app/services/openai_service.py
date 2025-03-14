@@ -1,9 +1,8 @@
 """Service for interacting with OpenAI API."""
 import logging
 import re
-from typing import List, Optional
+from typing import List
 
-import openai
 from openai import OpenAI
 
 from app.config import config

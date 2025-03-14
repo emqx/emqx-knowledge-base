@@ -1,14 +1,12 @@
 """Service for interacting with Slack API."""
 import logging
 import re
-from typing import List, Optional, Tuple
 
-from slack_bolt import App, BoltContext
+from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
-from slack_sdk.web import WebClient
 
 from app.config import config
-from app.models.knowledge import KnowledgeEntry, KnowledgeResponse
+from app.models.knowledge import KnowledgeEntry
 from app.services.database import db_service
 from app.services.openai_service import openai_service
 
