@@ -15,6 +15,7 @@ class Config(BaseModel):
     slack_bot_token: str = Field(default_factory=lambda: os.getenv("SLACK_BOT_TOKEN", ""))
     slack_app_token: str = Field(default_factory=lambda: os.getenv("SLACK_APP_TOKEN", ""))
     slack_signing_secret: str = Field(default_factory=lambda: os.getenv("SLACK_SIGNING_SECRET", ""))
+    slack_team_id: str = Field(default_factory=lambda: os.getenv("SLACK_TEAM_ID", ""))
 
     # OpenAI API credentials
     openai_api_key: str = Field(default_factory=lambda: os.getenv("OPENAI_API_KEY", ""))
@@ -46,6 +47,8 @@ class Config(BaseModel):
             missing.append("SLACK_APP_TOKEN")
         if not self.slack_signing_secret:
             missing.append("SLACK_SIGNING_SECRET")
+        if not self.slack_team_id:
+            missing.append("SLACK_TEAM_ID")
         if not self.openai_api_key:
             missing.append("OPENAI_API_KEY")
         if not self.database_url:

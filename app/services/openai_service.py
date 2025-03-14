@@ -6,7 +6,7 @@ from typing import List
 from openai import OpenAI
 
 from app.config import config
-from app.models.knowledge import KnowledgeEntry, KnowledgeResponse
+from app.models.knowledge import KnowledgeEntry, KnowledgeResponse, FileAttachment
 
 logger = logging.getLogger(__name__)
 
@@ -38,21 +38,40 @@ class OpenAIService:
             raise
 
     def generate_response(
-        self, question: str, context_entries: List[KnowledgeEntry]
+        self, question: str, context_entries: List[KnowledgeEntry], file_attachments: List[FileAttachment] = None
     ) -> KnowledgeResponse:
         """Generate a response to a question using OpenAI's Response API.
 
         Args:
             question: The question to answer.
             context_entries: Knowledge entries to use as context.
+            file_attachments: File attachments to use as additional context.
 
         Returns:
             The generated response.
         """
+        # Initialize file_attachments if None
+        if file_attachments is None:
+            file_attachments = []
+
         # Prepare context from knowledge entries
         context = "\n\n".join(
             [f"Source {i+1}:\n{entry.content}" for i, entry in enumerate(context_entries)]
         )
+
+        # Prepare context from file attachments
+        file_context = ""
+        if file_attachments:
+            file_summaries = []
+            for i, attachment in enumerate(file_attachments):
+                summary = f"File {i+1}: {attachment.file_name} - {attachment.content_summary}"
+                if attachment.content_text and len(attachment.content_text) > 0:
+                    # Add a snippet of the content if available
+                    content_snippet = attachment.content_text[:300] + "..." if len(attachment.content_text) > 300 else attachment.content_text
+                    summary += f"\nContent snippet: {content_snippet}"
+                file_summaries.append(summary)
+
+            file_context = "File Attachments:\n" + "\n\n".join(file_summaries)
 
         # Check if the question is about a specific EMQX version
         # Match patterns like "EMQX 4.3", "v4.3.10", "version 5.0", etc.
@@ -61,16 +80,16 @@ class OpenAIService:
             r"v(\d+\.\d+(?:\.\d+)?)",  # v4.3 or v4.3.10
             r"version\s+(\d+\.\d+(?:\.\d+)?)",  # version 4.3
         ]
-        
+
         version_specific_docs = ""
         version = None
-        
+
         for pattern in version_patterns:
             match = re.search(pattern, question.lower())
             if match:
                 version = match.group(1)
                 break
-        
+
         if version:
             # Determine if it's likely enterprise or open source based on the question
             if "enterprise" in question.lower() or "ee" in question.lower():
@@ -115,6 +134,7 @@ class OpenAIService:
                 input=[
                     {"role": "system", "content": system_message},
                     {"role": "developer", "content": f"Context: {context}"},
+                    {"role": "developer", "content": f"File Context: {file_context}" if file_context else "No file attachments provided."},
                     {"role": "user", "content": f"Question: {question}"}
                 ]
             )
@@ -128,6 +148,7 @@ class OpenAIService:
                 question=question,
                 answer=response.output_text,
                 sources=context_entries,
+                file_sources=file_attachments,
                 confidence=confidence,
             )
         except Exception as e:
@@ -137,6 +158,7 @@ class OpenAIService:
                 question=question,
                 answer="I'm sorry, I encountered an error while trying to answer your question.",
                 sources=[],
+                file_sources=[],
                 confidence=0.0,
             )
 

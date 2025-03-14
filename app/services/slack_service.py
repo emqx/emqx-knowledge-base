@@ -8,6 +8,7 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from app.config import config
 from app.models.knowledge import KnowledgeEntry
 from app.services.database import db_service
+from app.services.file_service import file_service
 from app.services.openai_service import openai_service
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,9 @@ class SlackService:
 
         # Handle reaction added events (for saving threads)
         self.app.event("reaction_added")(self._handle_reaction_added)
+
+        # Handle file shared events
+        self.app.event("file_shared")(self._handle_file_shared)
 
     def _handle_app_mention(self, body, say, context):
         """Handle app mention events.
@@ -133,7 +137,7 @@ class SlackService:
             "• Answer questions outside the scope of saved knowledge and official documentation\n"
             "• Access private channels or conversations I'm not invited to"
         )
-        
+
         say(
             text=help_text,
             thread_ts=thread_ts,
@@ -158,6 +162,58 @@ class SlackService:
             channel_id = item["channel"]
             thread_ts = item.get("thread_ts", item["ts"])
             self._save_thread(channel_id, thread_ts, user_id, say)
+
+    def _handle_file_shared(self, body, say, context):
+        """Handle file shared events.
+
+        Args:
+            body: The event body.
+            say: Function to send a message to the channel.
+            context: The event context.
+        """
+        event = body["event"]
+        file_id = event.get("file_id")
+
+        if not file_id:
+            return
+
+        try:
+            # Get file info
+            file_info = self.client.files_info(file=file_id)
+
+            if not file_info["ok"]:
+                logger.error(f"Failed to get file info: {file_info}")
+                return
+
+            file = file_info["file"]
+            channel_id = file.get("channels")[0] if file.get("channels") else None
+            thread_ts = file.get("thread_ts")
+            user_id = file.get("user")
+
+            # Only process files that are in threads
+            if not thread_ts or not channel_id:
+                return
+
+            # Process the file
+            file_url = file.get("url_private")
+            file_name = file.get("name")
+
+            logger.info(f"Processing file: {file_name} in thread {thread_ts}")
+
+            # Process and save the file attachment
+            attachment = file_service.process_file(
+                file_url=file_url,
+                file_name=file_name,
+                channel_id=channel_id,
+                thread_ts=thread_ts,
+                user_id=user_id,
+            )
+
+            if attachment:
+                logger.info(f"File attachment saved: {attachment.id}")
+
+        except Exception as e:
+            logger.error(f"Error processing file: {e}")
 
     def _save_thread(self, channel_id: str, thread_ts: str, user_id: str, say):
         """Save a thread to the knowledge base.
@@ -202,10 +258,36 @@ class SlackService:
 
             entry_id = db_service.save_knowledge(entry)
 
-            say(
-                text=f"I've saved this thread to the knowledge base (ID: {entry_id}).",
-                thread_ts=thread_ts,
-            )
+            # Process any files in the thread
+            file_count = 0
+            for message in messages:
+                if "files" in message:
+                    for file in message["files"]:
+                        file_url = file.get("url_private")
+                        file_name = file.get("name")
+
+                        # Process and save the file attachment
+                        attachment = file_service.process_file(
+                            file_url=file_url,
+                            file_name=file_name,
+                            channel_id=channel_id,
+                            thread_ts=thread_ts,
+                            user_id=message.get("user", user_id),
+                        )
+
+                        if attachment:
+                            file_count += 1
+
+            if file_count > 0:
+                say(
+                    text=f"I've saved this thread to the knowledge base (ID: {entry_id}) along with {file_count} file attachments.",
+                    thread_ts=thread_ts,
+                )
+            else:
+                say(
+                    text=f"I've saved this thread to the knowledge base (ID: {entry_id}).",
+                    thread_ts=thread_ts,
+                )
 
         except Exception as e:
             logger.error(f"Error saving thread: {e}")
@@ -235,13 +317,67 @@ class SlackService:
                 )
                 return
 
+            # Check if there are files in the current thread that need to be processed
+            thread_file_attachments = []
+            try:
+                # Get all messages in the thread
+                response = self.client.conversations_replies(
+                    channel=channel_id,
+                    ts=thread_ts,
+                )
+
+                if response["ok"] and response["messages"]:
+                    messages = response["messages"]
+
+                    # Process any files in the thread
+                    for message in messages:
+                        if "files" in message:
+                            for file in message["files"]:
+                                file_url = file.get("url_private")
+                                file_name = file.get("name")
+
+                                logger.info(f"Processing file for question: {file_name}")
+
+                                # First check if the file is already in the database
+                                existing_attachments = db_service.get_file_attachments_by_thread(channel_id, thread_ts)
+                                existing_file = next((a for a in existing_attachments if a.file_name == file_name), None)
+
+                                if existing_file:
+                                    logger.info(f"File already exists in database: {existing_file.id}")
+                                    thread_file_attachments.append(existing_file)
+                                else:
+                                    # Process and save the file attachment
+                                    attachment = file_service.process_file(
+                                        file_url=file_url,
+                                        file_name=file_name,
+                                        channel_id=channel_id,
+                                        thread_ts=thread_ts,
+                                        user_id=message.get("user"),
+                                    )
+
+                                    if attachment:
+                                        logger.info(f"File attachment processed for question: {attachment.id}")
+                                        thread_file_attachments.append(attachment)
+            except Exception as e:
+                logger.error(f"Error processing files in thread for question: {e}")
+                # Continue with the question answering even if file processing fails
+
             # Create embedding for the question
             embedding = openai_service.create_embedding(question)
 
             # Find similar entries in the knowledge base
             similar_entries = db_service.find_similar_entries(embedding)
 
-            if not similar_entries:
+            # Find similar file attachments
+            similar_files = db_service.find_similar_file_attachments(embedding)
+
+            # Combine thread files with similar files, prioritizing thread files
+            all_file_attachments = thread_file_attachments.copy()
+            for file, _ in similar_files:
+                if not any(tf.id == file.id for tf in thread_file_attachments if tf.id is not None):
+                    all_file_attachments.append(file)
+
+            if not similar_entries and not all_file_attachments:
                 say(
                     text="I don't have any relevant information in my knowledge base to answer your question.",
                     thread_ts=thread_ts,
@@ -250,21 +386,34 @@ class SlackService:
 
             # Generate a response using OpenAI
             entries = [entry for entry, _ in similar_entries]
-            response = openai_service.generate_response(question, entries)
+
+            response = openai_service.generate_response(question, entries, all_file_attachments)
 
             # Format the response
             answer_text = response.answer
-            
-            # Add source references if we have high confidence
-            if response.confidence > 0.5 and response.sources:
+
+            # Add source references
+            if response.sources:
                 source_links = []
-                for i, source in enumerate(response.sources):
-                    # Create a link to the source thread
-                    link = f"<https://slack.com/archives/{source.channel_id}/p{source.thread_ts.replace('.', '')}|Source {i+1}>"
-                    source_links.append(link)
-                
-                if source_links:
-                    answer_text += f"\n\n*Sources:* {', '.join(source_links)}"
+                for i, source in enumerate(response.sources, 1):
+                    source_link = f"<slack://channel?team={config.slack_team_id}&id={source.channel_id}&message={source.thread_ts}|Source {i}>"
+                    source_links.append(source_link)
+
+                answer_text += "\n\n*Sources:* " + ", ".join(source_links)
+
+            # Add file references
+            if response.file_sources:
+                file_links = []
+                for i, file in enumerate(response.file_sources, 1):
+                    file_link = f"<slack://channel?team={config.slack_team_id}&id={file.channel_id}&message={file.thread_ts}|{file.file_name}>"
+                    file_links.append(file_link)
+
+                answer_text += "\n\n*File References:* " + ", ".join(file_links)
+
+            # Add note about thread files if they were processed
+            if thread_file_attachments:
+                thread_file_names = [f"`{file.file_name}`" for file in thread_file_attachments]
+                answer_text += f"\n\n*Files in this thread:* {', '.join(thread_file_names)}"
 
             say(
                 text=answer_text,
@@ -280,10 +429,10 @@ class SlackService:
 
     def _is_analyze_thread_request(self, message: str) -> bool:
         """Check if the message is a request to analyze the current thread.
-        
+
         Args:
             message: The message to check.
-            
+
         Returns:
             True if the message is a request to analyze the thread, False otherwise.
         """
@@ -296,16 +445,16 @@ class SlackService:
             r"can you (help|assist)( me)?( with this)?",
             r"check this( thread)?( out)?",
         ]
-        
+
         for pattern in analyze_patterns:
             if re.search(pattern, message, re.IGNORECASE):
                 return True
-        
+
         return False
-        
+
     def _analyze_thread(self, channel_id: str, thread_ts: str, user_id: str, say):
         """Analyze the current thread and provide assistance.
-        
+
         Args:
             channel_id: The channel ID.
             thread_ts: The thread timestamp.
@@ -331,20 +480,51 @@ class SlackService:
             thread_content = "\n\n".join(
                 [f"<@{msg.get('user', 'UNKNOWN')}>: {msg.get('text', '')}" for msg in messages]
             )
-            
+
+            # Process any files in the thread
+            file_attachments = []
+            for message in messages:
+                if "files" in message:
+                    for file in message["files"]:
+                        file_url = file.get("url_private")
+                        file_name = file.get("name")
+
+                        logger.info(f"Processing file in thread analysis: {file_name}")
+
+                        # First check if the file is already in the database
+                        existing_attachments = db_service.get_file_attachments_by_thread(channel_id, thread_ts)
+                        existing_file = next((a for a in existing_attachments if a.file_name == file_name), None)
+
+                        if existing_file:
+                            logger.info(f"File already exists in database: {existing_file.id}")
+                            file_attachments.append(existing_file)
+                        else:
+                            # Process and save the file attachment
+                            attachment = file_service.process_file(
+                                file_url=file_url,
+                                file_name=file_name,
+                                channel_id=channel_id,
+                                thread_ts=thread_ts,
+                                user_id=message.get("user", user_id),
+                            )
+
+                            if attachment:
+                                logger.info(f"File attachment processed for analysis: {attachment.id}")
+                                file_attachments.append(attachment)
+
             # Create a question that asks for analysis of the thread
             analysis_question = "Please analyze this thread and provide assistance based on the conversation. " + \
                                "Identify any problems, questions, or issues being discussed and provide helpful information or solutions."
 
             # Create embedding for the thread content
             embedding = openai_service.create_embedding(thread_content)
-            
+
             # Find similar entries in the knowledge base that might be relevant
             similar_entries = db_service.find_similar_entries(embedding, threshold=0.5)
-            
+
             # Generate a response using OpenAI
             entries = [entry for entry, _ in similar_entries]
-            
+
             # Add the current thread as a source
             current_thread_entry = KnowledgeEntry(
                 channel_id=channel_id,
@@ -353,14 +533,22 @@ class SlackService:
                 content=thread_content,
                 embedding=embedding,
             )
-            
+
             # Put the current thread as the first entry for context
             all_entries = [current_thread_entry] + entries
-            
-            response = openai_service.generate_response(analysis_question, all_entries)
+
+            response = openai_service.generate_response(analysis_question, all_entries, file_attachments)
+
+            # Format the response
+            answer_text = f"*Thread Analysis:*\n\n{response.answer}"
+
+            # Add file references if any were processed
+            if file_attachments:
+                file_names = [f"`{file.file_name}`" for file in file_attachments]
+                answer_text += f"\n\n*Files Analyzed:* {', '.join(file_names)}"
 
             say(
-                text=f"*Thread Analysis:*\n\n{response.answer}",
+                text=answer_text,
                 thread_ts=thread_ts,
             )
 
@@ -378,4 +566,4 @@ class SlackService:
 
 
 # Create a global Slack service instance
-slack_service = SlackService() 
+slack_service = SlackService()
