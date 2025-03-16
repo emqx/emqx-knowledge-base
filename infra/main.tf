@@ -176,12 +176,31 @@ data "archive_file" "app_code" {
   ]
 }
 
-# Upload code archive to S3
+# Upload application code to S3
 resource "aws_s3_object" "app_code" {
   bucket = aws_s3_bucket.app_code.id
   key    = "latest.zip"
   source = data.archive_file.app_code.output_path
-  etag   = filemd5(data.archive_file.app_code.output_path)
+  etag   = data.archive_file.app_code.output_base64sha256
+}
+
+# Store the app code checksum and trigger code update
+resource "null_resource" "app_code_update" {
+  triggers = {
+    code_hash = data.archive_file.app_code.output_base64sha256
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      aws ssm send-command \
+        --region ${var.aws_region} \
+        --instance-ids ${aws_instance.app.id} \
+        --document-name "AWS-RunShellScript" \
+        --parameters 'commands=["cd /opt/app && sudo -u app aws s3 cp s3://${aws_s3_bucket.app_code.id}/latest.zip code.zip && sudo -u app unzip -o code.zip && rm code.zip && sudo systemctl restart emqx-knowledge-base"]'
+    EOT
+  }
+
+  depends_on = [aws_s3_object.app_code]
 }
 
 # EC2 instance
@@ -224,6 +243,7 @@ curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://
 echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list
 apt update
 apt install -y postgresql-client-16
+PGPASSWORD='${jsondecode(data.aws_secretsmanager_secret_version.db_password.secret_string)["password"]}' psql -h ${aws_db_instance.main.address} -U ${var.db_username} -d ${var.db_name} -c 'CREATE EXTENSION IF NOT EXISTS vector';
 
 # Install uv globally
 wget https://github.com/astral-sh/uv/releases/download/0.6.6/uv-aarch64-unknown-linux-gnu.tar.gz
@@ -310,23 +330,6 @@ data "aws_secretsmanager_secret""db_password" {
 
 data "aws_secretsmanager_secret_version" "db_password" {
   secret_id = data.aws_secretsmanager_secret.db_password.id
-}
-
-resource "null_resource" "create_pgvector_extension" {
-  triggers = {
-    instance_id = aws_db_instance.main.id
-  }
-
-  provisioner "local-exec" {
-    command = <<-EOT
-      while ! PGPASSWORD='${jsondecode(data.aws_secretsmanager_secret_version.db_password.secret_string)["password"]}' psql -h ${aws_db_instance.main.address} -U ${var.db_username} -d ${var.db_name} -c 'CREATE EXTENSION IF NOT EXISTS vector;' 2>/dev/null; do
-        echo "Waiting for RDS instance to be ready..."
-        sleep 10
-      done
-    EOT
-  }
-
-  depends_on = [aws_db_instance.main]
 }
 
 # Update the IAM role policy to allow access to RDS-managed secrets

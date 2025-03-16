@@ -118,24 +118,24 @@ class SlackService:
             "*EMQX Knowledge Bot*\n\n"
             "I help your team capture and retrieve valuable knowledge from Slack conversations.\n\n"
             "*What I can do:*\n"
-            "• Save important Slack threads to a searchable knowledge base\n"
-            "• Analyze ongoing threads to provide assistance without saving them\n"
-            "• Answer questions based on previously saved knowledge\n"
-            "• Provide source links to original conversations\n"
-            "• Reference official EMQX documentation when appropriate\n"
-            "• Recognize version-specific questions (e.g., 'How to configure auth in EMQX 5.0?')\n"
-            "• Provide information about EMQX Kubernetes deployments using the Operator\n"
-            "• Use AI to generate relevant responses based on your team's specific knowledge\n\n"
+            "- Save important Slack threads to a searchable knowledge base\n"
+            "- Analyze ongoing threads to provide assistance without saving them\n"
+            "- Answer questions based on previously saved knowledge\n"
+            "- Provide source links to original conversations\n"
+            "- Reference official EMQX documentation when appropriate\n"
+            "- Recognize version-specific questions (e.g., 'How to configure auth in EMQX 5.0?')\n"
+            "- Provide information about EMQX Kubernetes deployments using the Operator\n"
+            "- Use AI to generate relevant responses based on your team's specific knowledge\n\n"
             "*How to use me:*\n"
-            "• To save a thread: Add a 📚 reaction to any message or mention me with `@KnowledgeBot save`\n"
-            "• To analyze a thread: Mention me with `@KnowledgeBot help with this` or similar phrases\n"
-            "• To ask a question: Mention me with your question like `@KnowledgeBot What's the solution for...?`\n"
-            "• For version-specific help: Include the version number in your question (e.g., `@KnowledgeBot How to use rule engine in EMQX 4.3?`)\n"
-            "• For Kubernetes help: Include terms like 'Kubernetes', 'K8s', or 'Operator' in your question\n\n"
+            "- To save a thread: Add a 📚 reaction to any message or mention me with `@KnowledgeBot save`\n"
+            "- To analyze a thread: Mention me with `@KnowledgeBot help with this` or similar phrases\n"
+            "- To ask a question: Mention me with your question like `@KnowledgeBot What's the solution for...?`\n"
+            "- For version-specific help: Include the version number in your question (e.g., `@KnowledgeBot How to use rule engine in EMQX 4.3?`)\n"
+            "- For Kubernetes help: Include terms like 'Kubernetes', 'K8s', or 'Operator' in your question\n\n"
             "*What I cannot do:*\n"
-            "• Automatically save all conversations (I only save threads when explicitly requested)\n"
-            "• Answer questions outside the scope of saved knowledge and official documentation\n"
-            "• Access private channels or conversations I'm not invited to"
+            "- Automatically save all conversations (I only save threads when explicitly requested)\n"
+            "- Answer questions outside the scope of saved knowledge and official documentation\n"
+            "- Access private channels or conversations I'm not invited to"
         )
 
         say(
@@ -377,13 +377,6 @@ class SlackService:
                 if not any(tf.id == file.id for tf in thread_file_attachments if tf.id is not None):
                     all_file_attachments.append(file)
 
-            if not similar_entries and not all_file_attachments:
-                say(
-                    text="I don't have any relevant information in my knowledge base to answer your question.",
-                    thread_ts=thread_ts,
-                )
-                return
-
             # Generate a response using OpenAI
             entries = [entry for entry, _ in similar_entries]
 
@@ -437,6 +430,7 @@ class SlackService:
             True if the message is a request to analyze the thread, False otherwise.
         """
         analyze_patterns = [
+            r"help here",
             r"analyze( this)? thread",
             r"summarize( this)? thread",
             r"assist( with)? this( thread)?",
