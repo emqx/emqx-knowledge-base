@@ -1,0 +1,25 @@
+# Environment name (e.g., prod, staging, dev)
+environment = "prod"
+
+# AWS region for deployment
+aws_region = "us-east-1"
+
+# EC2 instance type (ARM-based)
+instance_type = "t4g.small"
+
+# RDS instance type (ARM-based)
+db_instance_type = "db.t4g.micro"
+
+# Database configuration
+db_name     = "knowledge_base"
+db_username = "postgres"
+# Note: DB password is automatically generated and stored in AWS Secrets Manager
+
+# Slack configuration
+slack_bot_token      = "xoxb-your-bot-token"        # Bot User OAuth Token
+slack_app_token      = "xapp-your-app-token"        # App-Level Token
+slack_signing_secret = "your-signing-secret"        # Signing Secret
+slack_team_id        = "T0123ABCDEF"               # Team ID from Slack workspace URL
+
+# OpenAI configuration
+openai_api_key = "sk-your-api-key" 
