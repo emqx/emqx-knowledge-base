@@ -3,9 +3,12 @@ import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.routes import router
 from app.services.database import db_service
+from app.config import config
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +16,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Lifespan context manager for FastAPI application."""
     # Startup
+    logger.info("Application startup: initializing services...")
     yield
     # Shutdown
     logger.info("Application shutdown: closing database connections...")
@@ -35,9 +39,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include API routes
-app.include_router(router, prefix="/api")
+# Add GZip compression
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
+# Add session middleware for WebSocket authentication if needed
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=config.secret_key,
+    max_age=3600,  # 1 hour
+)
+
+# Include API routes - mount at root to ensure WebSocket routes work properly
+app.include_router(router)
+
+# Log available routes on startup
+@app.on_event("startup")
+async def startup_event():
+    """Log available routes on startup."""
+    routes = [
+        {"path": route.path, "name": route.name, "methods": getattr(route, "methods", ["WS"]) if "websocket" in route.path else route.methods}
+        for route in app.routes
+    ]
+    logger.info(f"Available routes: {routes}")
 
 @app.get("/health")
 async def health_check():

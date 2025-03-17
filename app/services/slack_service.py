@@ -1,6 +1,7 @@
 """Service for interacting with Slack API."""
 import logging
 import re
+import asyncio
 
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
@@ -9,7 +10,7 @@ from app.config import config
 from app.models.knowledge import KnowledgeEntry
 from app.services.database import db_service
 from app.services.file_service import file_service
-from app.services.openai_service import openai_service
+from app.services.llama_index_service import llama_index_service
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,7 @@ class SlackService:
         # Check if this is a request to analyze the current thread
         # This check needs to come before the general help request check
         if self._is_analyze_thread_request(message):
-            self._analyze_thread(channel_id, thread_ts, user_id, say)
+            asyncio.create_task(self._analyze_thread(channel_id, thread_ts, user_id, say))
             return
 
         # Check if this is a general help request
@@ -73,7 +74,7 @@ class SlackService:
             return
 
         # Otherwise, treat it as a question
-        self._answer_question(text, channel_id, thread_ts, say)
+        asyncio.create_task(self._answer_question(text, channel_id, thread_ts, say))
 
     def _is_help_request(self, message: str) -> bool:
         """Check if the message is a general help request.
@@ -245,7 +246,7 @@ class SlackService:
             )
 
             # Create embedding for the thread content
-            embedding = openai_service.create_embedding(thread_content)
+            embedding = llama_index_service.create_embedding(thread_content)
 
             # Create and save the knowledge entry
             entry = KnowledgeEntry(
@@ -296,7 +297,7 @@ class SlackService:
                 thread_ts=thread_ts,
             )
 
-    def _answer_question(self, text: str, channel_id: str, thread_ts: str, say):
+    async def _answer_question(self, text: str, channel_id: str, thread_ts: str, say):
         """Answer a question using the knowledge base.
 
         Args:
@@ -363,7 +364,7 @@ class SlackService:
                 # Continue with the question answering even if file processing fails
 
             # Create embedding for the question
-            embedding = openai_service.create_embedding(question)
+            embedding = llama_index_service.create_embedding(question)
 
             # Find similar entries in the knowledge base
             similar_entries = db_service.find_similar_entries(embedding)
@@ -377,10 +378,10 @@ class SlackService:
                 if not any(tf.id == file.id for tf in thread_file_attachments if tf.id is not None):
                     all_file_attachments.append(file)
 
-            # Generate a response using OpenAI
+            # Generate a response using LlamaIndex
             entries = [entry for entry, _ in similar_entries]
 
-            response = openai_service.generate_response(question, entries, all_file_attachments)
+            response = await llama_index_service.generate_response(question, entries, all_file_attachments)
 
             # Format the response
             answer_text = response.answer
@@ -446,7 +447,7 @@ class SlackService:
 
         return False
 
-    def _analyze_thread(self, channel_id: str, thread_ts: str, user_id: str, say):
+    async def _analyze_thread(self, channel_id: str, thread_ts: str, user_id: str, say):
         """Analyze the current thread and provide assistance.
 
         Args:
@@ -511,12 +512,12 @@ class SlackService:
                                "Identify any problems, questions, or issues being discussed and provide helpful information or solutions."
 
             # Create embedding for the thread content
-            embedding = openai_service.create_embedding(thread_content)
+            embedding = llama_index_service.create_embedding(thread_content)
 
             # Find similar entries in the knowledge base that might be relevant
             similar_entries = db_service.find_similar_entries(embedding, threshold=0.5)
 
-            # Generate a response using OpenAI
+            # Generate a response using LlamaIndex
             entries = [entry for entry, _ in similar_entries]
 
             # Add the current thread as a source
@@ -531,7 +532,7 @@ class SlackService:
             # Put the current thread as the first entry for context
             all_entries = [current_thread_entry] + entries
 
-            response = openai_service.generate_response(analysis_question, all_entries, file_attachments)
+            response = await llama_index_service.generate_response(analysis_question, all_entries, file_attachments)
 
             # Format the response
             answer_text = f"*Thread Analysis:*\n\n{response.answer}"

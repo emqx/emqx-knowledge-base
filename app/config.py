@@ -3,7 +3,7 @@ import os
 from typing import Optional, List
 
 from dotenv import load_dotenv
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # Load environment variables from .env file
 load_dotenv()
@@ -14,11 +14,18 @@ class Config(BaseModel):
     # Database
     database_url: str = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/knowledge_base")
 
-    # OpenAI
-    openai_api_key: Optional[str] = os.getenv("OPENAI_API_KEY")
-    openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o")
+    # LLM Configuration
+    llm_api_key: Optional[str] = os.getenv("OPENAI_API_KEY")  # Keeping env var name for backward compatibility
+    llm_model: str = os.getenv("LLM_MODEL", os.getenv("OPENAI_MODEL", "gpt-4o"))
+    llm_temperature: float = float(os.getenv("LLM_TEMPERATURE", "0.7"))
+    llm_provider: str = os.getenv("LLM_PROVIDER", "openai")
     embedding_model: str = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
     embedding_dimension: int = int(os.getenv("EMBEDDING_DIMENSION", "1536"))
+    
+    # Backward compatibility fields
+    openai_api_key: Optional[str] = Field(None)
+    openai_model: str = Field(None)
+    openai_temperature: float = Field(None)
 
     # Slack
     slack_bot_token: Optional[str] = os.getenv("SLACK_BOT_TOKEN")
@@ -42,6 +49,11 @@ class Config(BaseModel):
     host: str = os.getenv("HOST", "0.0.0.0")
     port: int = int(os.getenv("PORT", "3000"))
 
+    # WebSocket
+    websocket_ping_interval: int = int(os.getenv("WEBSOCKET_PING_INTERVAL", "20"))  # seconds
+    websocket_timeout: int = int(os.getenv("WEBSOCKET_TIMEOUT", "60"))  # seconds
+    websocket_max_message_size: int = int(os.getenv("WEBSOCKET_MAX_MESSAGE_SIZE", "1048576"))  # 1MB
+    
     # File uploads
     upload_folder: str = os.getenv("UPLOAD_FOLDER", "uploads")
     max_upload_size: int = int(os.getenv("MAX_UPLOAD_SIZE", "10485760"))  # 10MB
@@ -52,6 +64,7 @@ class Config(BaseModel):
 
     # Security
     cors_origins: list = os.getenv("CORS_ORIGINS", "*").split(",")
+    secret_key: str = os.getenv("SECRET_KEY", "supersecretkey")
 
     # Performance
     workers: int = int(os.getenv("WORKERS", "1"))
@@ -59,14 +72,15 @@ class Config(BaseModel):
     # Features
     enable_slack: bool = os.getenv("ENABLE_SLACK", "false").lower() == "true"
     enable_log_analysis: bool = os.getenv("ENABLE_LOG_ANALYSIS", "true").lower() == "true"
+    enable_websockets: bool = os.getenv("ENABLE_WEBSOCKETS", "true").lower() == "true"
 
     def validate_config(self) -> List[str]:
         """Validate the configuration and return a list of missing required values."""
         missing = []
 
-        # Check for required OpenAI API key
-        if not self.openai_api_key:
-            missing.append("OPENAI_API_KEY")
+        # Check for required LLM API key
+        if not self.llm_api_key:
+            missing.append("OPENAI_API_KEY or LLM_API_KEY")
 
         # Check for required Slack credentials if Slack is enabled
         if self.enable_slack:
@@ -89,7 +103,17 @@ class Config(BaseModel):
                 missing.append("EMQX_PWD")
 
         return missing
+    
+    def __init__(self, **data):
+        super().__init__(**data)
+        # Set backward compatibility fields
+        self.openai_api_key = self.llm_api_key
+        self.openai_model = self.llm_model
+        self.openai_temperature = self.llm_temperature
 
 
 # Create a global config instance
 config = Config()
+
+# Export settings for easier imports
+settings = config

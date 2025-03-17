@@ -8,7 +8,7 @@ from typing import Optional, Tuple
 from app.config import config
 from app.models.knowledge import FileAttachment, FileType
 from app.services.database import db_service
-from app.services.openai_service import openai_service
+from app.services.llama_index_service import llama_index_service
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class FileService:
             if content_text:
                 # Use a combination of summary and content for embedding
                 embedding_text = f"{content_summary}\n\n{content_text[:1000]}"  # Limit content length
-                embedding = openai_service.create_embedding(embedding_text)
+                embedding = llama_index_service.create_embedding(embedding_text)
 
             # Create and save the file attachment
             attachment = FileAttachment(
@@ -201,25 +201,25 @@ class FileService:
                 # Set content text and create embedding
                 file_attachment.content_text = content
                 file_attachment.content_summary = f"Text file: {file_name} ({len(content)} characters)"
-                file_attachment.embedding = openai_service.create_embedding(content)
+                file_attachment.embedding = llama_index_service.create_embedding(content)
 
             elif file_extension in ['.pdf']:
                 # PDF files - just use the filename for now
                 file_attachment.content_summary = f"PDF file: {file_name}"
                 # Create embedding from the summary
-                file_attachment.embedding = openai_service.create_embedding(file_attachment.content_summary)
+                file_attachment.embedding = llama_index_service.create_embedding(file_attachment.content_summary)
 
             elif file_extension in ['.jpg', '.jpeg', '.png', '.gif', '.bmp']:
                 # Image files - just use the filename for now
                 file_attachment.content_summary = f"Image file: {file_name}"
                 # Create embedding from the summary
-                file_attachment.embedding = openai_service.create_embedding(file_attachment.content_summary)
+                file_attachment.embedding = llama_index_service.create_embedding(file_attachment.content_summary)
 
             else:
                 # Other files - just use the filename
                 file_attachment.content_summary = f"File: {file_name}"
                 # Create embedding from the summary
-                file_attachment.embedding = openai_service.create_embedding(file_attachment.content_summary)
+                file_attachment.embedding = llama_index_service.create_embedding(file_attachment.content_summary)
 
             return file_attachment
 

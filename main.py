@@ -39,10 +39,27 @@ def main():
 
     logger.info("Starting EMQX Knowledge Base application...")
 
+    # Log WebSocket configuration if enabled
+    if config.enable_websockets:
+        logger.info("WebSocket support is enabled")
+        logger.info(f"WebSocket ping interval: {config.websocket_ping_interval} seconds")
+        logger.info(f"WebSocket timeout: {config.websocket_timeout} seconds")
+        logger.info(f"WebSocket max message size: {config.websocket_max_message_size} bytes")
+    else:
+        logger.info("WebSocket support is disabled")
+
     try:
         # Start the API server directly in the main thread
         logger.info(f"Starting API server on http://{config.host}:{config.port}")
-        uvicorn.run(api_app, host=config.host, port=config.port, log_level=config.log_level.lower())
+        uvicorn.run(
+            api_app,
+            host=config.host,
+            port=config.port,
+            log_level=config.log_level.lower(),
+            ws_ping_interval=config.websocket_ping_interval if config.enable_websockets else None,
+            ws_ping_timeout=config.websocket_timeout if config.enable_websockets else None,
+            ws_max_size=config.websocket_max_message_size if config.enable_websockets else None
+        )
 
     except KeyboardInterrupt:
         logger.info("Shutting down gracefully...")
