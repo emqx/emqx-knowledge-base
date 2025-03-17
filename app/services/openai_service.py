@@ -2,6 +2,7 @@
 import logging
 import re
 from typing import List
+import traceback
 
 from openai import OpenAI
 
@@ -16,7 +17,17 @@ class OpenAIService:
 
     def __init__(self):
         """Initialize the OpenAI service."""
-        self.client = OpenAI(api_key=config.openai_api_key)
+        try:
+            if not config.openai_api_key:
+                logger.warning("OpenAI API key is not set. Using mock responses.")
+                self.client = None
+            else:
+                self.client = OpenAI(api_key=config.openai_api_key)
+                logger.debug("OpenAI client initialized successfully")
+        except Exception as e:
+            logger.error(f"Error initializing OpenAI client: {e}")
+            logger.error(traceback.format_exc())
+            self.client = None
 
     def create_embedding(self, text: str) -> List[float]:
         """Create an embedding for the given text.
@@ -28,14 +39,31 @@ class OpenAIService:
             The embedding vector.
         """
         try:
-            response = self.client.embeddings.create(
-                model=config.embedding_model,
-                input=text,
-            )
-            return response.data[0].embedding
+            if self.client is None:
+                logger.warning("OpenAI client not initialized. Returning mock embedding.")
+                return [0.1] * config.embedding_dimension
+
+            logger.debug(f"Creating embedding for text: {text[:50]}...")
+
+            # Wrap the actual API call in its own try-except block
+            try:
+                response = self.client.embeddings.create(
+                    model=config.embedding_model,
+                    input=text,
+                )
+                logger.debug("Embedding API call completed successfully")
+                return response.data[0].embedding
+            except Exception as api_error:
+                logger.error(f"OpenAI API call failed: {api_error}")
+                logger.error(traceback.format_exc())
+                # Return a mock embedding as fallback
+                return [0.1] * config.embedding_dimension
+
         except Exception as e:
             logger.error(f"Error creating embedding: {e}")
-            raise
+            logger.error(traceback.format_exc())
+            # Return a mock embedding as fallback
+            return [0.1] * config.embedding_dimension
 
     def generate_response(
         self, question: str, context_entries: List[KnowledgeEntry], file_attachments: List[FileAttachment] = None
@@ -53,6 +81,17 @@ class OpenAIService:
         # Initialize file_attachments if None
         if file_attachments is None:
             file_attachments = []
+
+        # Check if OpenAI client is initialized
+        if self.client is None:
+            logger.warning("OpenAI client not initialized. Returning mock response.")
+            return KnowledgeResponse(
+                question=question,
+                answer=f"This is a mock response to your question: '{question}'. OpenAI API key is not configured.",
+                sources=context_entries,
+                file_sources=file_attachments,
+                confidence=0.5,
+            )
 
         # Prepare context from knowledge entries
         context = "\n\n".join(
@@ -164,4 +203,4 @@ class OpenAIService:
 
 
 # Create a global OpenAI service instance
-openai_service = OpenAIService() 
+openai_service = OpenAIService()

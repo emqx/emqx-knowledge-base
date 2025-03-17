@@ -1,7 +1,7 @@
 [project]
 name = "emqx-knowledge-base"
 version = "0.1.0"
-description = "Slack bot for collecting and retrieving knowledge using embeddings"
+description = "EMQX Knowledge Base with Slack integration"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -13,6 +13,9 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "pydantic>=2.4.0",
     "requests>=2.31.0",
+    "uvicorn>=0.34.0",
+    "fastapi>=0.115.11",
+    "python-multipart>=0.0.20",
 ]
 
 [project.optional-dependencies]

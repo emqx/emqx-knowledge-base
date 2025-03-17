@@ -30,8 +30,3 @@ def configure_logging(level: Optional[int] = None) -> None:
 
     # Add handler to root logger
     root_logger.addHandler(console_handler)
-
-    # Set specific levels for some loggers
-    logging.getLogger("slack_bolt").setLevel(logging.WARNING)
-    logging.getLogger("slack_sdk").setLevel(logging.WARNING)
-    logging.getLogger("openai").setLevel(logging.WARNING) 

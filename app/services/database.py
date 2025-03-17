@@ -224,37 +224,42 @@ class DatabaseService:
     def find_similar_file_attachments(
         self, embedding: List[float], limit: int = 3, threshold: float = 0.6
     ) -> List[Tuple[FileAttachment, float]]:
-        """Find similar file attachments based on embedding similarity.
+        """Find file attachments similar to the given embedding.
         
         Args:
-            embedding: The embedding vector to compare against.
-            limit: Maximum number of results to return.
-            threshold: Minimum similarity threshold (0-1).
+            embedding: The embedding to compare against.
+            limit: The maximum number of attachments to return.
+            threshold: The minimum similarity threshold.
             
         Returns:
             A list of tuples containing the file attachment and its similarity score.
         """
-        with self.pool.connection() as conn:
-            with conn.cursor(row_factory=dict_row) as cur:
-                cur.execute(
-                    """
-                    SELECT
-                        id, channel_id, thread_ts, user_id, file_name, file_type,
-                        file_url, content_summary, content_text, created_at,
-                        1 - (embedding <=> %s::vector) AS similarity
-                    FROM file_attachments
-                    WHERE embedding IS NOT NULL AND 1 - (embedding <=> %s::vector) > %s
-                    ORDER BY similarity DESC
-                    LIMIT %s
-                    """,
-                    (embedding, embedding, threshold, limit),
-                )
-                results = []
-                for row in cur.fetchall():
-                    similarity = row.pop("similarity")
-                    attachment = FileAttachment.model_validate(row)
-                    results.append((attachment, similarity))
-                return results
+        try:
+            with self.pool.connection() as conn:
+                with conn.cursor(row_factory=dict_row) as cur:
+                    cur.execute(
+                        """
+                        SELECT id, channel_id, thread_ts, user_id, file_name, file_type, file_url,
+                            content_summary, content_text, created_at,
+                            1 - (embedding <=> %s::vector) as similarity
+                        FROM file_attachments
+                        WHERE embedding IS NOT NULL AND 1 - (embedding <=> %s::vector) > %s
+                        ORDER BY similarity DESC
+                        LIMIT %s
+                        """,
+                        (embedding, embedding, threshold, limit),
+                    )
+                    rows = cur.fetchall()
+                    results = []
+                    for row in rows:
+                        similarity = row.pop("similarity")
+                        attachment = FileAttachment.model_validate(row)
+                        results.append((attachment, similarity))
+                    return results
+        except Exception as e:
+            logger.error(f"Error finding similar file attachments: {e}")
+            # Return an empty list on error
+            return []
     
     def get_file_attachments_by_thread(self, channel_id: str, thread_ts: str) -> List[FileAttachment]:
         """Get all file attachments for a specific thread.

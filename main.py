@@ -2,10 +2,19 @@
 import logging
 import sys
 import signal
+import uvicorn
+import traceback
 
 from app.config import config
-from app.services.slack_service import slack_service
 from app.utils.logging import configure_logging
+from app.api.app import app as api_app
+
+
+def handle_exit(signum, frame):
+    """Handle exit signals."""
+    logger = logging.getLogger(__name__)
+    logger.info(f"Received signal {signum}, shutting down...")
+    sys.exit(0)
 
 
 def main():
@@ -14,6 +23,10 @@ def main():
     configure_logging()
     logger = logging.getLogger(__name__)
 
+    # Set up signal handlers
+    signal.signal(signal.SIGINT, handle_exit)
+    signal.signal(signal.SIGTERM, handle_exit)
+
     # Validate configuration
     missing_config = config.validate_config()
     if missing_config:
@@ -21,25 +34,18 @@ def main():
         logger.error("Please set these environment variables in a .env file or in your environment.")
         sys.exit(1)
 
-    logger.info("Starting EMQX Knowledge Base Slack Bot...")
-    
+    logger.info("Starting EMQX Knowledge Base application...")
+
     try:
-        # Start the Slack bot
-        slack_service.start()
-        logger.info("Slack bot started successfully!")
-        
-        # Keep the main thread running until interrupted
-        def signal_handler(sig, frame):
-            logger.info("Shutting down...")
-            sys.exit(0)
-            
-        signal.signal(signal.SIGINT, signal_handler)
-        signal.pause()  # Wait for a signal
-        
+        # Start the API server directly in the main thread
+        logger.info("Starting API server on http://0.0.0.0:3000")
+        uvicorn.run(api_app, host="0.0.0.0", port=3000, log_level="debug")
+
     except KeyboardInterrupt:
-        logger.info("Shutting down...")
+        logger.info("Shutting down gracefully...")
     except Exception as e:
         logger.error(f"Error starting the application: {e}")
+        logger.error(traceback.format_exc())
         sys.exit(1)
 
 
