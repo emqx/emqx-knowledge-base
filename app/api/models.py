@@ -10,17 +10,23 @@ class QuestionRequest(BaseModel):
     question: str
 
 
-class SourceReference(BaseModel):
-    """Reference to a knowledge source."""
+class LogAnalysisRequest(BaseModel):
+    """Request model for analyzing a log."""
 
-    id: Optional[int] = None
+    log_text: str
+
+
+class SourceReference(BaseModel):
+    """Reference to a source of information."""
+
+    title: str
+    url: Optional[str] = None
     content_snippet: str
 
 
 class FileReference(BaseModel):
     """Reference to a file attachment."""
 
-    id: Optional[int] = None
     file_name: str
     file_type: str
 
@@ -30,5 +36,4 @@ class AnswerResponse(BaseModel):
 
     answer: str
     sources: List[SourceReference] = []
-    file_sources: List[FileReference] = []
-    confidence: float 
+    file_sources: List[FileReference] = [] 

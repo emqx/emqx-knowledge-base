@@ -16,6 +16,8 @@ dependencies = [
     "uvicorn>=0.34.0",
     "fastapi>=0.115.11",
     "python-multipart>=0.0.20",
+    "llama-index-core>=0.12.24.post1",
+    "llama-index-llms-openai>=0.3.25",
 ]
 
 [project.optional-dependencies]

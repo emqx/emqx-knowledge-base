@@ -144,7 +144,7 @@ class DatabaseService:
                 cur.execute(
                     """
                     SELECT
-                        id, channel_id, thread_ts, user_id, content, 
+                        id, channel_id, thread_ts, user_id, content,
                         created_at, updated_at,
                         1 - (embedding <=> %s::vector) AS similarity
                     FROM knowledge_entries
@@ -188,10 +188,10 @@ class DatabaseService:
 
     def save_file_attachment(self, attachment: FileAttachment) -> int:
         """Save a file attachment to the database.
-        
+
         Args:
             attachment: The file attachment to save.
-            
+
         Returns:
             The ID of the saved attachment.
         """
@@ -200,7 +200,7 @@ class DatabaseService:
                 cur.execute(
                     """
                     INSERT INTO file_attachments
-                    (channel_id, thread_ts, user_id, file_name, file_type, file_url, 
+                    (channel_id, thread_ts, user_id, file_name, file_type, file_url,
                      content_summary, content_text, embedding)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::vector)
                     RETURNING id
@@ -220,17 +220,17 @@ class DatabaseService:
                 attachment_id = cur.fetchone()[0]
                 conn.commit()
                 return attachment_id
-    
+
     def find_similar_file_attachments(
         self, embedding: List[float], limit: int = 3, threshold: float = 0.6
     ) -> List[Tuple[FileAttachment, float]]:
         """Find file attachments similar to the given embedding.
-        
+
         Args:
             embedding: The embedding to compare against.
             limit: The maximum number of attachments to return.
             threshold: The minimum similarity threshold.
-            
+
         Returns:
             A list of tuples containing the file attachment and its similarity score.
         """
@@ -260,14 +260,14 @@ class DatabaseService:
             logger.error(f"Error finding similar file attachments: {e}")
             # Return an empty list on error
             return []
-    
+
     def get_file_attachments_by_thread(self, channel_id: str, thread_ts: str) -> List[FileAttachment]:
         """Get all file attachments for a specific thread.
-        
+
         Args:
             channel_id: The Slack channel ID.
             thread_ts: The Slack thread timestamp.
-            
+
         Returns:
             A list of file attachments for the thread.
         """
@@ -284,6 +284,16 @@ class DatabaseService:
                 )
                 return [FileAttachment.model_validate(row) for row in cur.fetchall()]
 
+    def close(self):
+        """Close the database connection pool."""
+        if hasattr(self, 'pool') and self.pool:
+            logger.info("Closing database connection pool...")
+            self.pool.close()
+
+    def __del__(self):
+        """Destructor to ensure pool is closed."""
+        self.close()
+
 
 # Create a global database service instance
-db_service = DatabaseService() 
+db_service = DatabaseService()

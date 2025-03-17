@@ -8,12 +8,15 @@ import traceback
 from app.config import config
 from app.utils.logging import configure_logging
 from app.api.app import app as api_app
+from app.services.database import db_service
 
 
 def handle_exit(signum, frame):
     """Handle exit signals."""
     logger = logging.getLogger(__name__)
     logger.info(f"Received signal {signum}, shutting down...")
+    # Close database connection pool
+    db_service.close()
     sys.exit(0)
 
 
@@ -38,14 +41,16 @@ def main():
 
     try:
         # Start the API server directly in the main thread
-        logger.info("Starting API server on http://0.0.0.0:3000")
-        uvicorn.run(api_app, host="0.0.0.0", port=3000, log_level="debug")
+        logger.info(f"Starting API server on http://{config.host}:{config.port}")
+        uvicorn.run(api_app, host=config.host, port=config.port, log_level=config.log_level.lower())
 
     except KeyboardInterrupt:
         logger.info("Shutting down gracefully...")
+        db_service.close()
     except Exception as e:
         logger.error(f"Error starting the application: {e}")
         logger.error(traceback.format_exc())
+        db_service.close()
         sys.exit(1)
 
 

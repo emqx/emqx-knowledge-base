@@ -1,125 +1,96 @@
-# EMQX Knowledge Base Slack Bot
+# EMQX Knowledge Base
 
-A Slack bot that collects problems and solutions from Slack threads and responds to user questions using OpenAI and vector embeddings.
+A knowledge base application for EMQX that allows users to ask questions and get answers based on the knowledge base. It also includes a log analysis feature for EMQX logs.
 
 ## Features
 
-- **Knowledge Collection**: Users can explicitly request to save valuable Slack threads to the knowledge base
-- **Thread Analysis**: Analyze ongoing threads to provide assistance without saving them
-- **Question Answering**: Users can ask questions and get responses based on the collected knowledge
-- **Vector Search**: Uses PostgreSQL with pg_vector for efficient similarity search
-- **OpenAI Integration**: Leverages OpenAI's Response API for generating high-quality answers
-- **Documentation Awareness**: References official EMQX documentation when appropriate
+- Ask questions and get answers based on the knowledge base
+- Upload files to provide additional context for questions
+- Analyze EMQX logs to identify issues and get troubleshooting recommendations
+- Slack integration for asking questions and getting answers
+
+## Technologies
+
+- Backend: FastAPI, SQLAlchemy, OpenAI, LlamaIndex
+- Frontend: Vue.js, Tailwind CSS
+- Database: SQLite (default), PostgreSQL (optional)
 
 ## Setup
 
-### Prerequisites
-
-- [Python 3.12+](https://www.python.org/downloads/) - The programming language used
-- [PostgreSQL](https://www.postgresql.org/download/) with [pg_vector](https://github.com/pgvector/pgvector) extension - Database for storing embeddings
-- [Slack App](https://api.slack.com/apps) with appropriate permissions - For bot integration
-- [OpenAI API key](https://platform.openai.com/api-keys) - For embeddings and response generation
-- [uv](https://github.com/astral-sh/uv) - Fast Python package installer and resolver
-
-### Installation
-
-1. Clone the repository:
+1. Clone the repository
+2. Install dependencies:
    ```bash
-   git clone https://github.com/emqx/emqx-knowledge-base.git
-   cd emqx-knowledge-base
+   uv pip install -r requirements.txt
+   ```
+3. Set up environment variables:
+   ```bash
+   cp .env.example .env
+   ```
+4. Edit the `.env` file to set your OpenAI API key and other configuration options
+5. Run the application:
+   ```bash
+   uvicorn app.api.app:app --reload
    ```
 
-1. Install dependencies with uv:
-   ```bash
-   uv pip install -e .
-   ```
+## Environment Variables
 
-1. Create a `.env` file based on `.env.example` and fill in your credentials.
+- `OPENAI_API_KEY`: Your OpenAI API key
+- `OPENAI_MODEL`: The OpenAI model to use (default: gpt-4o)
+- `DATABASE_URL`: The database URL (default: sqlite:///knowledge_base.db)
+- `SLACK_BOT_TOKEN`: Your Slack bot token (optional)
+- `SLACK_APP_TOKEN`: Your Slack app token (optional)
+- `SLACK_SIGNING_SECRET`: Your Slack signing secret (optional)
+- `SLACK_TEAM_ID`: Your Slack team ID (optional)
+- `EMQX_BASE_URL`: The base URL for the EMQX API (default: http://localhost:18083/api/v5)
+- `EMQX_USR_NAME`: The EMQX username (default: admin)
+- `EMQX_PWD`: The EMQX password (default: public)
+- `ENABLE_SLACK`: Whether to enable Slack integration (default: false)
+- `ENABLE_LOG_ANALYSIS`: Whether to enable log analysis (default: true)
 
-1. Set up the PostgreSQL database with pg_vector:
-   ```bash
-   # Start PostgreSQL with Docker (optional)
-   docker-compose up -d
-   
-   # Initialize the database
-   uv run scripts/init_db.py
-   ```
+## API Endpoints
 
-### Slack App Configuration
+- `POST /api/ask`: Ask a question to the knowledge base
+- `POST /api/analyze-log`: Analyze an EMQX log
+- `GET /api/health`: Health check endpoint
 
-1. Create a new Slack App at https://api.slack.com/apps
-2. Add the following Bot Token Scopes:
-   - `app_mentions:read`
-   - `channels:history`
-   - `channels:read`
-   - `chat:write`
-   - `reactions:read`
-   - `reactions:write`
-3. Enable Socket Mode and Event Subscriptions
-4. Subscribe to the following events:
-   - `app_mention`
-   - `message.channels`
-   - `reaction_added`
-5. Install the app to your workspace
+## Web UI
 
-## Usage
+The web UI is available at http://localhost:8000 and includes:
 
-### Starting the Bot
+- A page for asking questions and getting answers
+- A page for analyzing EMQX logs
 
-```bash
-uv run main.py
-```
+## Log Analysis
 
-### Saving Knowledge
+The log analysis feature uses LlamaIndex to analyze EMQX logs and provide troubleshooting recommendations. It can:
 
-To save a thread to the knowledge base, add a reaction with the 📚 (books) emoji to any message in the thread.
-
-Alternatively, mention the bot with the command:
-```
-@KnowledgeBot save
-```
-
-### Analyzing Threads
-
-To get assistance with an ongoing thread without saving it, mention the bot with:
-```
-@KnowledgeBot help with this
-```
-
-Or similar phrases like "analyze this thread", "what's happening here?", etc.
-
-### Asking Questions
-
-To ask a question, mention the bot:
-```
-@KnowledgeBot What's the solution for [your question here]?
-```
-
-For version-specific questions, include the version number:
-```
-@KnowledgeBot How to configure authentication in EMQX 5.0?
-```
-
-For Kubernetes-related questions, include terms like "Kubernetes", "K8s", or "Operator":
-```
-@KnowledgeBot How to deploy EMQX on Kubernetes?
-```
+- Extract information from EMQX logs
+- Identify issues and their potential causes
+- Provide step-by-step troubleshooting recommendations
 
 ## Development
 
-### Running Tests
+To set up the development environment:
 
-```bash
-uv run pytest
-```
-
-### Code Formatting & Linting
-
-```bash
-uv tool run ruff check
-uv tool run ruff check --fix
-```
+1. Install dependencies:
+   ```bash
+   uv pip install -r requirements.txt
+   ```
+2. Install frontend dependencies:
+   ```bash
+   cd web
+   npm install
+   ```
+3. Run the backend:
+   ```bash
+   uvicorn app.api.app:app --reload
+   ```
+4. Run the frontend:
+   ```bash
+   cd web
+   npm run dev
+   ```
 
 ## License
 
-MIT
+This project is licensed under the MIT License - see the LICENSE file for details.
