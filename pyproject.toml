@@ -21,6 +21,7 @@ dependencies = [
     "sse-starlette>=2.0.0",
     "starlette>=0.46.1",
     "itsdangerous>=2.2.0",
+    "PyJWT>=2.8.0",
 ]
 
 [project.optional-dependencies]

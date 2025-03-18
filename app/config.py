@@ -35,8 +35,8 @@ class Config(BaseModel):
 
     # EMQX
     emqx_base_url: Optional[str] = os.getenv("EMQX_BASE_URL", "http://localhost:18083/api/v5")
-    emqx_username: Optional[str] = os.getenv("EMQX_USR_NAME", "admin")
-    emqx_password: Optional[str] = os.getenv("EMQX_PWD", "public")
+    emqx_username: Optional[str] = os.getenv("EMQX_USERNAME", "admin")
+    emqx_password: Optional[str] = os.getenv("EMQX_PASSWORD", "public")
 
     # LlamaIndex
     llama_index_verbose: bool = os.getenv("LLAMA_INDEX_VERBOSE", "false").lower() == "true"
@@ -62,9 +62,13 @@ class Config(BaseModel):
     log_format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     log_date_format: str = "%Y-%m-%d %H:%M:%S"
 
+    # Environment
+    environment: str = os.getenv("ENVIRONMENT", "production")
+
     # Security
     cors_origins: list = os.getenv("CORS_ORIGINS", "*").split(",")
     secret_key: str = os.getenv("SECRET_KEY", "supersecretkey")
+    jwt_secret: str = os.getenv("JWT_SECRET", secret_key)  # Secret key for validating JWTs
 
     # Performance
     workers: int = int(os.getenv("WORKERS", "1"))
@@ -98,10 +102,10 @@ class Config(BaseModel):
             if not self.emqx_base_url:
                 missing.append("EMQX_BASE_URL")
             if not self.emqx_username:
-                missing.append("EMQX_USR_NAME")
+                missing.append("EMQX_USERNAME")
             if not self.emqx_password:
-                missing.append("EMQX_PWD")
-
+                missing.append("EMQX_PASSWORD")
+                
         return missing
     
     def __init__(self, **data):
@@ -114,6 +118,9 @@ class Config(BaseModel):
 
 # Create a global config instance
 config = Config()
+
+# Print environment information for debugging
+print(f"[CONFIG] Running in environment: {config.environment}")
 
 # Export settings for easier imports
 settings = config

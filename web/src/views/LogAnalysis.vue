@@ -197,7 +197,7 @@ const readFile = (file) => {
       try {
         // Store the file content
         const fileContent = e.target.result
-        sessionStorage.setItem('lastLogText', fileContent)
+        localStorage.setItem('lastLogText', fileContent)
         console.log('File content stored, length:', fileContent.length)
         resolve(fileContent)
       } catch (err) {
@@ -236,15 +236,15 @@ const submitMessage = async () => {
   // If this is the first message, store it as the log text
   if (isFirstMessage) {
     console.log('First message - storing as log text')
-    sessionStorage.setItem('lastLogText', inputText)
-    sessionStorage.removeItem('userQuestion')
+    localStorage.setItem('lastLogText', inputText)
+    localStorage.removeItem('userQuestion')
   } else {
     // This is a follow-up question, store it separately
-    sessionStorage.setItem('userQuestion', inputText)
+    localStorage.setItem('userQuestion', inputText)
   }
   
   // Log for debugging
-  console.log('Stored log text length:', sessionStorage.getItem('lastLogText')?.length || 0)
+  console.log('Stored log text length:', localStorage.getItem('lastLogText')?.length || 0)
   
   // Send the message
   try {
@@ -288,10 +288,10 @@ const sendMessage = async () => {
     // For the first message, we need to include the log text from the user input
     if (isFirstMessage) {
       // This is the first message, use stored log text
-      payload.log_text = sessionStorage.getItem('lastLogText')
+      payload.log_text = localStorage.getItem('lastLogText')
       
       // If we have a specific question beyond the log text, include it as a message
-      const userQuestion = sessionStorage.getItem('userQuestion')
+      const userQuestion = localStorage.getItem('userQuestion')
       if (userQuestion) {
         payload.message = userQuestion
       }
@@ -302,7 +302,7 @@ const sendMessage = async () => {
       payload.message = lastUserMessage.content
       
       // Also include the log text if we have it stored (for session recovery)
-      const lastLogText = sessionStorage.getItem('lastLogText')
+      const lastLogText = localStorage.getItem('lastLogText')
       if (lastLogText) {
         payload.log_text = lastLogText
       }
@@ -370,7 +370,9 @@ const ensureWebSocketConnection = () => {
     
     // Determine WebSocket URL
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsUrl = `${protocol}//${window.location.host}/ws/analyze-log`
+    // Add token as query parameter for authentication
+    const token = localStorage.getItem('auth_token') || 'LOCAL_DEV_TOKEN'
+    const wsUrl = `${protocol}//${window.location.host}/ws/analyze-log?token=${encodeURIComponent(token)}`
     
     connectionStatus.value = 'Connecting to WebSocket...'
     console.log(`Connecting to WebSocket at ${wsUrl}`)
@@ -414,7 +416,7 @@ const ensureWebSocketConnection = () => {
             scrollToBottom(true);
             
             // Get the stored log text
-            const logText = sessionStorage.getItem('lastLogText');
+            const logText = localStorage.getItem('lastLogText');
             if (logText) {
               // Automatically restart the analysis with the same log text
               setTimeout(() => {

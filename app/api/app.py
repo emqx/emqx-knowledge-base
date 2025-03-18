@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-from app.api.routes import router
+from app.api.routes import router as api_router, ws_router
 from app.services.database import db_service
 from app.config import config
 
@@ -49,8 +49,11 @@ app.add_middleware(
     max_age=3600,  # 1 hour
 )
 
-# Include API routes - mount at root to ensure WebSocket routes work properly
-app.include_router(router)
+# Add API routes with /api prefix
+app.include_router(api_router, prefix="/api")
+
+# Add WebSocket routes at root level
+app.include_router(ws_router)
 
 # Log available routes on startup
 @app.on_event("startup")

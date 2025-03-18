@@ -54,8 +54,8 @@ A knowledge base application for EMQX that allows users to ask questions and get
 
 ### EMQX Configuration
 - `EMQX_BASE_URL`: The base URL for the EMQX API (default: http://localhost:18083/api/v5)
-- `EMQX_USR_NAME`: The EMQX username (default: admin)
-- `EMQX_PWD`: The EMQX password (default: public)
+- `EMQX_USERNAME`: The EMQX username (default: admin)
+- `EMQX_PASSWORD`: The EMQX password (default: public)
 
 ### Feature Flags
 - `ENABLE_SLACK`: Whether to enable Slack integration (default: false)
