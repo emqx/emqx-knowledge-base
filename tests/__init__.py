@@ -1,1 +1,1 @@
-"""Test package for emqx-knowledge-base.""" 
+"""Test package for emqx-knowledge-base."""

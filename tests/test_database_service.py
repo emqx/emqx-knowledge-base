@@ -1,4 +1,5 @@
 """Tests for the database service."""
+
 import os
 from unittest.mock import MagicMock
 
@@ -110,4 +111,4 @@ class TestDatabaseService:
         assert entry.id == 1
         assert entry.channel_id == "C123"
         assert entry.thread_ts == "1234.5678"
-        mock_cursor.execute.assert_called_once() 
+        mock_cursor.execute.assert_called_once()

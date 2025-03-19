@@ -1,4 +1,5 @@
 """API models for the application."""
+
 from typing import List, Optional
 
 from pydantic import BaseModel
@@ -36,4 +37,4 @@ class AnswerResponse(BaseModel):
 
     answer: str
     sources: List[SourceReference] = []
-    file_sources: List[FileReference] = [] 
+    file_sources: List[FileReference] = []

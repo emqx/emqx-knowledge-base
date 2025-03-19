@@ -1,0 +1,8 @@
+## EMQX Broker Connection Error
+
+I was unable to connect to your EMQX broker. This could be due to:
+- Incorrect broker address or credentials
+- The broker is not running or not accessible from this location
+- Network connectivity issues or firewall restrictions
+
+Please verify your broker details and try again. You can still receive assistance based on available knowledge base information. 

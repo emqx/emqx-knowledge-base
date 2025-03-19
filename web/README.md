@@ -90,4 +90,4 @@ terraform apply
 
 ```bash
 aws s3 sync ../web/dist s3://emqx-knowledge-base-prod-web
-``` 
+```

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 """Script to initialize the database with the pg_vector extension."""
+
 import logging
 import os
 import sys
@@ -36,19 +37,23 @@ def init_db():
                 # Create the vector extension
                 logger.info("Creating pg_vector extension...")
                 cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
-                
+
                 # Check if the extension was created successfully
-                cur.execute("SELECT extname, extversion FROM pg_extension WHERE extname = 'vector';")
+                cur.execute(
+                    "SELECT extname, extversion FROM pg_extension WHERE extname = 'vector';"
+                )
                 result = cur.fetchone()
                 if result:
-                    logger.info(f"pg_vector extension installed successfully: version {result[1]}")
+                    logger.info(
+                        f"pg_vector extension installed successfully: version {result[1]}"
+                    )
                 else:
                     logger.error("Failed to install pg_vector extension.")
                     sys.exit(1)
-                
+
                 # Commit the changes
                 conn.commit()
-                
+
         logger.info("Database initialization completed successfully.")
     except Exception as e:
         logger.error(f"Error initializing database: {e}")
@@ -56,4 +61,4 @@ def init_db():
 
 
 if __name__ == "__main__":
-    init_db() 
+    init_db()

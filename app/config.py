@@ -1,31 +1,30 @@
 """Configuration for the application."""
+
 import os
 from typing import Optional, List
 
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 # Load environment variables from .env file
 load_dotenv()
+
 
 class Config(BaseModel):
     """Configuration for the application."""
 
     # Database
-    database_url: str = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/knowledge_base")
+    database_url: str = os.getenv(
+        "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/knowledge_base"
+    )
 
     # LLM Configuration
-    llm_api_key: Optional[str] = os.getenv("OPENAI_API_KEY")  # Keeping env var name for backward compatibility
-    llm_model: str = os.getenv("LLM_MODEL", os.getenv("OPENAI_MODEL", "gpt-4o"))
+    llm_api_key: Optional[str] = os.getenv("LLM_API_KEY")
+    llm_model: str = os.getenv("LLM_MODEL", "gpt-4o")
     llm_temperature: float = float(os.getenv("LLM_TEMPERATURE", "0.7"))
     llm_provider: str = os.getenv("LLM_PROVIDER", "openai")
     embedding_model: str = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
     embedding_dimension: int = int(os.getenv("EMBEDDING_DIMENSION", "1536"))
-    
-    # Backward compatibility fields
-    openai_api_key: Optional[str] = Field(None)
-    openai_model: str = Field(None)
-    openai_temperature: float = Field(None)
 
     # Slack
     slack_bot_token: Optional[str] = os.getenv("SLACK_BOT_TOKEN")
@@ -33,16 +32,12 @@ class Config(BaseModel):
     slack_signing_secret: Optional[str] = os.getenv("SLACK_SIGNING_SECRET")
     slack_team_id: Optional[str] = os.getenv("SLACK_TEAM_ID")
 
-    # EMQX
-    emqx_base_url: Optional[str] = os.getenv("EMQX_BASE_URL", "http://localhost:18083/api/v5")
-    emqx_username: Optional[str] = os.getenv("EMQX_USERNAME", "admin")
-    emqx_password: Optional[str] = os.getenv("EMQX_PASSWORD", "public")
-
     # LlamaIndex
-    llama_index_verbose: bool = os.getenv("LLAMA_INDEX_VERBOSE", "false").lower() == "true"
+    llama_index_verbose: bool = (
+        os.getenv("LLAMA_INDEX_VERBOSE", "false").lower() == "true"
+    )
 
     # Application
-    debug: bool = os.getenv("DEBUG", "false").lower() == "true"
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
 
     # Server
@@ -50,10 +45,14 @@ class Config(BaseModel):
     port: int = int(os.getenv("PORT", "3000"))
 
     # WebSocket
-    websocket_ping_interval: int = int(os.getenv("WEBSOCKET_PING_INTERVAL", "20"))  # seconds
+    websocket_ping_interval: int = int(
+        os.getenv("WEBSOCKET_PING_INTERVAL", "20")
+    )  # seconds
     websocket_timeout: int = int(os.getenv("WEBSOCKET_TIMEOUT", "60"))  # seconds
-    websocket_max_message_size: int = int(os.getenv("WEBSOCKET_MAX_MESSAGE_SIZE", "1048576"))  # 1MB
-    
+    websocket_max_message_size: int = int(
+        os.getenv("WEBSOCKET_MAX_MESSAGE_SIZE", "1048576")
+    )  # 1MB
+
     # File uploads
     upload_folder: str = os.getenv("UPLOAD_FOLDER", "uploads")
     max_upload_size: int = int(os.getenv("MAX_UPLOAD_SIZE", "10485760"))  # 10MB
@@ -68,15 +67,12 @@ class Config(BaseModel):
     # Security
     cors_origins: list = os.getenv("CORS_ORIGINS", "*").split(",")
     secret_key: str = os.getenv("SECRET_KEY", "supersecretkey")
-    jwt_secret: str = os.getenv("JWT_SECRET", secret_key)  # Secret key for validating JWTs
-
-    # Performance
-    workers: int = int(os.getenv("WORKERS", "1"))
+    jwt_secret: str = os.getenv(
+        "JWT_SECRET", secret_key
+    )  # Secret key for validating JWTs
 
     # Features
     enable_slack: bool = os.getenv("ENABLE_SLACK", "false").lower() == "true"
-    enable_log_analysis: bool = os.getenv("ENABLE_LOG_ANALYSIS", "true").lower() == "true"
-    enable_websockets: bool = os.getenv("ENABLE_WEBSOCKETS", "true").lower() == "true"
 
     def validate_config(self) -> List[str]:
         """Validate the configuration and return a list of missing required values."""
@@ -84,7 +80,7 @@ class Config(BaseModel):
 
         # Check for required LLM API key
         if not self.llm_api_key:
-            missing.append("OPENAI_API_KEY or LLM_API_KEY")
+            missing.append("LLM_API_KEY")
 
         # Check for required Slack credentials if Slack is enabled
         if self.enable_slack:
@@ -97,23 +93,10 @@ class Config(BaseModel):
             if not self.slack_team_id:
                 missing.append("SLACK_TEAM_ID")
 
-        # Check for required EMQX credentials if log analysis is enabled
-        if self.enable_log_analysis:
-            if not self.emqx_base_url:
-                missing.append("EMQX_BASE_URL")
-            if not self.emqx_username:
-                missing.append("EMQX_USERNAME")
-            if not self.emqx_password:
-                missing.append("EMQX_PASSWORD")
-                
         return missing
-    
+
     def __init__(self, **data):
         super().__init__(**data)
-        # Set backward compatibility fields
-        self.openai_api_key = self.llm_api_key
-        self.openai_model = self.llm_model
-        self.openai_temperature = self.llm_temperature
 
 
 # Create a global config instance

@@ -1,0 +1,9 @@
+First, determine if the following input contains EMQX log data.
+
+INPUT:
+```
+{input}
+```
+
+Respond with ONLY "YES" if this contains log data that should be analyzed with the log analyzer,
+or "NO" if this is a regular question about EMQX that should be answered normally. 

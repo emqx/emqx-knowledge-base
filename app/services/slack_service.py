@@ -1,4 +1,5 @@
 """Service for interacting with Slack API."""
+
 import logging
 import re
 import asyncio
@@ -10,7 +11,7 @@ from app.config import config
 from app.models.knowledge import KnowledgeEntry
 from app.services.database import db_service
 from app.services.file_service import file_service
-from app.services.llama_index_service import llama_index_service
+from app.services.emqx_assistant import emqx_assistant_service
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +66,9 @@ class SlackService:
         # Check if this is a request to analyze the current thread
         # This check needs to come before the general help request check
         if self._is_analyze_thread_request(message):
-            asyncio.create_task(self._analyze_thread(channel_id, thread_ts, user_id, say))
+            asyncio.create_task(
+                self._analyze_thread(channel_id, thread_ts, user_id, say)
+            )
             return
 
         # Check if this is a general help request
@@ -74,7 +77,7 @@ class SlackService:
             return
 
         # Otherwise, treat it as a question
-        asyncio.create_task(self._answer_question(text, channel_id, thread_ts, say))
+        asyncio.create_task(self._process_input(text, channel_id, thread_ts, say))
 
     def _is_help_request(self, message: str) -> bool:
         """Check if the message is a general help request.
@@ -242,11 +245,14 @@ class SlackService:
             # Combine all messages into a single text
             messages = response["messages"]
             thread_content = "\n\n".join(
-                [f"<@{msg.get('user', 'UNKNOWN')}>: {msg.get('text', '')}" for msg in messages]
+                [
+                    f"<@{msg.get('user', 'UNKNOWN')}>: {msg.get('text', '')}"
+                    for msg in messages
+                ]
             )
 
             # Create embedding for the thread content
-            embedding = llama_index_service.create_embedding(thread_content)
+            embedding = emqx_assistant_service.create_embedding(thread_content)
 
             # Create and save the knowledge entry
             entry = KnowledgeEntry(
@@ -297,7 +303,7 @@ class SlackService:
                 thread_ts=thread_ts,
             )
 
-    async def _answer_question(self, text: str, channel_id: str, thread_ts: str, say):
+    async def _process_input(self, text: str, channel_id: str, thread_ts: str, say):
         """Answer a question using the knowledge base.
 
         Args:
@@ -311,7 +317,10 @@ class SlackService:
             question = re.sub(r"<@[A-Z0-9]+>\s*", "", text).strip()
 
             # If the question is too short or doesn't seem like a question, ask for clarification
-            if len(question) < 5 or not any(q in question.lower() for q in ["?", "what", "how", "why", "when", "where", "who"]):
+            if len(question) < 5 or not any(
+                q in question.lower()
+                for q in ["?", "what", "how", "why", "when", "where", "who"]
+            ):
                 say(
                     text="I'm not sure what you're asking. Could you please rephrase your question?",
                     thread_ts=thread_ts,
@@ -337,14 +346,29 @@ class SlackService:
                                 file_url = file.get("url_private")
                                 file_name = file.get("name")
 
-                                logger.info(f"Processing file for question: {file_name}")
+                                logger.info(
+                                    f"Processing file for question: {file_name}"
+                                )
 
                                 # First check if the file is already in the database
-                                existing_attachments = db_service.get_file_attachments_by_thread(channel_id, thread_ts)
-                                existing_file = next((a for a in existing_attachments if a.file_name == file_name), None)
+                                existing_attachments = (
+                                    db_service.get_file_attachments_by_thread(
+                                        channel_id, thread_ts
+                                    )
+                                )
+                                existing_file = next(
+                                    (
+                                        a
+                                        for a in existing_attachments
+                                        if a.file_name == file_name
+                                    ),
+                                    None,
+                                )
 
                                 if existing_file:
-                                    logger.info(f"File already exists in database: {existing_file.id}")
+                                    logger.info(
+                                        f"File already exists in database: {existing_file.id}"
+                                    )
                                     thread_file_attachments.append(existing_file)
                                 else:
                                     # Process and save the file attachment
@@ -357,17 +381,16 @@ class SlackService:
                                     )
 
                                     if attachment:
-                                        logger.info(f"File attachment processed for question: {attachment.id}")
+                                        logger.info(
+                                            f"File attachment processed for question: {attachment.id}"
+                                        )
                                         thread_file_attachments.append(attachment)
             except Exception as e:
                 logger.error(f"Error processing files in thread for question: {e}")
                 # Continue with the question answering even if file processing fails
 
-            # Create embedding for the question
-            embedding = llama_index_service.create_embedding(question)
-
-            # Find similar entries in the knowledge base
-            similar_entries = db_service.find_similar_entries(embedding)
+            # Create embedding for the question to find similar entries
+            embedding = emqx_assistant_service.create_embedding(question)
 
             # Find similar file attachments
             similar_files = db_service.find_similar_file_attachments(embedding)
@@ -375,13 +398,18 @@ class SlackService:
             # Combine thread files with similar files, prioritizing thread files
             all_file_attachments = thread_file_attachments.copy()
             for file, _ in similar_files:
-                if not any(tf.id == file.id for tf in thread_file_attachments if tf.id is not None):
+                if not any(
+                    tf.id == file.id
+                    for tf in thread_file_attachments
+                    if tf.id is not None
+                ):
                     all_file_attachments.append(file)
 
-            # Generate a response using LlamaIndex
-            entries = [entry for entry, _ in similar_entries]
-
-            response = await llama_index_service.generate_response(question, entries, all_file_attachments)
+            # Always use the EMQX Q&A service to answer questions
+            logger.info("Using EMQX Q&A service to answer question")
+            response = await emqx_assistant_service.process_input(
+                question=question, file_attachments=all_file_attachments
+            )
 
             # Format the response
             answer_text = response.answer
@@ -406,8 +434,12 @@ class SlackService:
 
             # Add note about thread files if they were processed
             if thread_file_attachments:
-                thread_file_names = [f"`{file.file_name}`" for file in thread_file_attachments]
-                answer_text += f"\n\n*Files in this thread:* {', '.join(thread_file_names)}"
+                thread_file_names = [
+                    f"`{file.file_name}`" for file in thread_file_attachments
+                ]
+                answer_text += (
+                    f"\n\n*Files in this thread:* {', '.join(thread_file_names)}"
+                )
 
             say(
                 text=answer_text,
@@ -473,7 +505,10 @@ class SlackService:
             # Combine all messages into a single text
             messages = response["messages"]
             thread_content = "\n\n".join(
-                [f"<@{msg.get('user', 'UNKNOWN')}>: {msg.get('text', '')}" for msg in messages]
+                [
+                    f"<@{msg.get('user', 'UNKNOWN')}>: {msg.get('text', '')}"
+                    for msg in messages
+                ]
             )
 
             # Process any files in the thread
@@ -487,11 +522,24 @@ class SlackService:
                         logger.info(f"Processing file in thread analysis: {file_name}")
 
                         # First check if the file is already in the database
-                        existing_attachments = db_service.get_file_attachments_by_thread(channel_id, thread_ts)
-                        existing_file = next((a for a in existing_attachments if a.file_name == file_name), None)
+                        existing_attachments = (
+                            db_service.get_file_attachments_by_thread(
+                                channel_id, thread_ts
+                            )
+                        )
+                        existing_file = next(
+                            (
+                                a
+                                for a in existing_attachments
+                                if a.file_name == file_name
+                            ),
+                            None,
+                        )
 
                         if existing_file:
-                            logger.info(f"File already exists in database: {existing_file.id}")
+                            logger.info(
+                                f"File already exists in database: {existing_file.id}"
+                            )
                             file_attachments.append(existing_file)
                         else:
                             # Process and save the file attachment
@@ -504,23 +552,23 @@ class SlackService:
                             )
 
                             if attachment:
-                                logger.info(f"File attachment processed for analysis: {attachment.id}")
+                                logger.info(
+                                    f"File attachment processed for analysis: {attachment.id}"
+                                )
                                 file_attachments.append(attachment)
 
-            # Create a question that asks for analysis of the thread
-            analysis_question = "Please analyze this thread and provide assistance based on the conversation. " + \
-                               "Identify any problems, questions, or issues being discussed and provide helpful information or solutions."
+            # Create a question that asks for analysis of the thread and includes the thread content
+            analysis_question = f"""Please analyze this conversation thread and provide assistance:
+
+Thread Content:
+{thread_content}
+
+Provide a thorough analysis of the above conversation. Identify any problems, questions, or issues being discussed and provide helpful information, solutions, or recommendations. Focus on EMQX-related issues if present."""
 
             # Create embedding for the thread content
-            embedding = llama_index_service.create_embedding(thread_content)
+            embedding = emqx_assistant_service.create_embedding(thread_content)
 
-            # Find similar entries in the knowledge base that might be relevant
-            similar_entries = db_service.find_similar_entries(embedding, threshold=0.5)
-
-            # Generate a response using LlamaIndex
-            entries = [entry for entry, _ in similar_entries]
-
-            # Add the current thread as a source
+            # Create a thread context entry to provide to the Q&A service
             current_thread_entry = KnowledgeEntry(
                 channel_id=channel_id,
                 thread_ts=thread_ts,
@@ -529,10 +577,24 @@ class SlackService:
                 embedding=embedding,
             )
 
-            # Put the current thread as the first entry for context
-            all_entries = [current_thread_entry] + entries
+            # Save the thread entry temporarily to make it available as a source
+            temp_entry_id = db_service.save_knowledge(current_thread_entry)
+            logger.info(f"Temporary thread entry saved with ID: {temp_entry_id}")
 
-            response = await llama_index_service.generate_response(analysis_question, all_entries, file_attachments)
+            # Use the EMQX Q&A service for thread analysis
+            logger.info("Using EMQX Q&A service for thread analysis")
+
+            # Use a custom session ID for this thread analysis
+            session_id = f"slack_thread_{channel_id}_{thread_ts}"
+
+            response = await emqx_assistant_service.process_input(
+                question=analysis_question,
+                session_id=session_id,
+                file_attachments=file_attachments,
+            )
+
+            # Remove the temporary entry to keep the database clean
+            db_service.delete_knowledge(temp_entry_id)
 
             # Format the response
             answer_text = f"*Thread Analysis:*\n\n{response.answer}"

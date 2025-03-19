@@ -1,4 +1,5 @@
 """FastAPI application for the API."""
+
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -12,6 +13,7 @@ from app.config import config
 
 logger = logging.getLogger(__name__)
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for FastAPI application."""
@@ -21,6 +23,7 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("Application shutdown: closing database connections...")
     db_service.close()
+
 
 # Create FastAPI app
 app = FastAPI(
@@ -55,17 +58,25 @@ app.include_router(api_router, prefix="/api")
 # Add WebSocket routes at root level
 app.include_router(ws_router)
 
+
 # Log available routes on startup
 @app.on_event("startup")
 async def startup_event():
     """Log available routes on startup."""
     routes = [
-        {"path": route.path, "name": route.name, "methods": getattr(route, "methods", ["WS"]) if "websocket" in route.path else route.methods}
+        {
+            "path": route.path,
+            "name": route.name,
+            "methods": getattr(route, "methods", ["WS"])
+            if "websocket" in route.path
+            else route.methods,
+        }
         for route in app.routes
     ]
     logger.info(f"Available routes: {routes}")
 
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    return {"status": "ok"} 
+    return {"status": "ok"}

@@ -1,4 +1,5 @@
 """Service for processing file attachments."""
+
 import logging
 import os
 import requests
@@ -8,7 +9,7 @@ from typing import Optional, Tuple
 from app.config import config
 from app.models.knowledge import FileAttachment, FileType
 from app.services.database import db_service
-from app.services.llama_index_service import llama_index_service
+from app.services.emqx_assistant import emqx_assistant_service
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,12 @@ class FileService:
     """Service for processing file attachments."""
 
     def process_file(
-        self, file_url: str, file_name: str, channel_id: str, thread_ts: str, user_id: str
+        self,
+        file_url: str,
+        file_name: str,
+        channel_id: str,
+        thread_ts: str,
+        user_id: str,
     ) -> Optional[FileAttachment]:
         """Process a file attachment and save it to the database.
 
@@ -36,14 +42,16 @@ class FileService:
             file_type, content_text = self._extract_file_content(file_url, file_name)
 
             # Generate a summary of the file content
-            content_summary = self._generate_file_summary(content_text, file_type, file_name)
+            content_summary = self._generate_file_summary(
+                content_text, file_type, file_name
+            )
 
             # Create embedding for the file content
             embedding = []
             if content_text:
                 # Use a combination of summary and content for embedding
                 embedding_text = f"{content_summary}\n\n{content_text[:1000]}"  # Limit content length
-                embedding = llama_index_service.create_embedding(embedding_text)
+                embedding = emqx_assistant_service.create_embedding(embedding_text)
 
             # Create and save the file attachment
             attachment = FileAttachment(
@@ -66,7 +74,9 @@ class FileService:
             logger.error(f"Error processing file {file_name}: {e}")
             return None
 
-    def _extract_file_content(self, file_url: str, file_name: str) -> Tuple[FileType, str]:
+    def _extract_file_content(
+        self, file_url: str, file_name: str
+    ) -> Tuple[FileType, str]:
         """Extract content from a file.
 
         Args:
@@ -88,7 +98,9 @@ class FileService:
 
             if response.status_code != 200:
                 logger.error(f"Failed to download file: {response.status_code}")
-                return self._determine_file_type(extension), f"Error downloading file: {response.status_code}"
+                return self._determine_file_type(
+                    extension
+                ), f"Error downloading file: {response.status_code}"
 
             # Save the file to a temporary location
             with tempfile.NamedTemporaryFile(delete=False) as temp_file:
@@ -107,7 +119,9 @@ class FileService:
         except Exception as e:
             logger.error(f"Error extracting content from file {file_name}: {e}")
             # Return a placeholder for now
-            return self._determine_file_type(extension), f"Error extracting content: {str(e)}"
+            return self._determine_file_type(
+                extension
+            ), f"Error extracting content: {str(e)}"
 
     def _determine_file_type(self, extension: str) -> FileType:
         """Determine the file type based on extension.
@@ -118,11 +132,11 @@ class FileService:
         Returns:
             The file type.
         """
-        if extension in ['.log', '.txt', '.json', '.yml', '.yaml', '.xml']:
+        if extension in [".log", ".txt", ".json", ".yml", ".yaml", ".xml"]:
             return FileType.LOG
-        elif extension in ['.png', '.jpg', '.jpeg', '.gif']:
+        elif extension in [".png", ".jpg", ".jpeg", ".gif"]:
             return FileType.IMAGE
-        elif extension == '.pdf':
+        elif extension == ".pdf":
             return FileType.PDF
         else:
             return FileType.OTHER
@@ -140,15 +154,17 @@ class FileService:
         # In a real implementation, you would use appropriate libraries for each file type
         # This is a simplified version that just reads text files
 
-        if extension in ['.log', '.txt', '.json', '.yml', '.yaml', '.xml']:
-            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+        if extension in [".log", ".txt", ".json", ".yml", ".yaml", ".xml"]:
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 return f.read()
 
         # For other file types, return a placeholder
         # In a real implementation, you would use OCR for images, PDF extraction for PDFs, etc.
         return f"Content extracted from {os.path.basename(file_path)}"
 
-    def _generate_file_summary(self, content_text: str, file_type: FileType, file_name: str) -> str:
+    def _generate_file_summary(
+        self, content_text: str, file_type: FileType, file_name: str
+    ) -> str:
         """Generate a summary of the file content.
 
         Args:
@@ -193,33 +209,53 @@ class FileService:
             file_extension = os.path.splitext(file_name)[1].lower()
 
             # Process based on file type
-            if file_extension in ['.txt', '.log', '.md', '.csv', '.json', '.yml', '.yaml', '.xml', '.html']:
+            if file_extension in [
+                ".txt",
+                ".log",
+                ".md",
+                ".csv",
+                ".json",
+                ".yml",
+                ".yaml",
+                ".xml",
+                ".html",
+            ]:
                 # Text files
-                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                     content = f.read()
 
                 # Set content text and create embedding
                 file_attachment.content_text = content
-                file_attachment.content_summary = f"Text file: {file_name} ({len(content)} characters)"
-                file_attachment.embedding = llama_index_service.create_embedding(content)
+                file_attachment.content_summary = (
+                    f"Text file: {file_name} ({len(content)} characters)"
+                )
+                file_attachment.embedding = emqx_assistant_service.create_embedding(
+                    content
+                )
 
-            elif file_extension in ['.pdf']:
+            elif file_extension in [".pdf"]:
                 # PDF files - just use the filename for now
                 file_attachment.content_summary = f"PDF file: {file_name}"
                 # Create embedding from the summary
-                file_attachment.embedding = llama_index_service.create_embedding(file_attachment.content_summary)
+                file_attachment.embedding = emqx_assistant_service.create_embedding(
+                    file_attachment.content_summary
+                )
 
-            elif file_extension in ['.jpg', '.jpeg', '.png', '.gif', '.bmp']:
+            elif file_extension in [".jpg", ".jpeg", ".png", ".gif", ".bmp"]:
                 # Image files - just use the filename for now
                 file_attachment.content_summary = f"Image file: {file_name}"
                 # Create embedding from the summary
-                file_attachment.embedding = llama_index_service.create_embedding(file_attachment.content_summary)
+                file_attachment.embedding = emqx_assistant_service.create_embedding(
+                    file_attachment.content_summary
+                )
 
             else:
                 # Other files - just use the filename
                 file_attachment.content_summary = f"File: {file_name}"
                 # Create embedding from the summary
-                file_attachment.embedding = llama_index_service.create_embedding(file_attachment.content_summary)
+                file_attachment.embedding = emqx_assistant_service.create_embedding(
+                    file_attachment.content_summary
+                )
 
             return file_attachment
 

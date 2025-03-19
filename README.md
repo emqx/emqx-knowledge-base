@@ -13,7 +13,7 @@ A knowledge base application for EMQX that allows users to ask questions and get
 
 - Backend: FastAPI, SQLAlchemy, LlamaIndex
 - Frontend: Vue.js, Tailwind CSS
-- Database: SQLite (default), PostgreSQL (optional)
+- Database: PostgreSQL
 - LLM Support: OpenAI, Anthropic, Cohere, Gemini, HuggingFace (via LlamaIndex)
 
 ## Setup
@@ -37,14 +37,14 @@ A knowledge base application for EMQX that allows users to ask questions and get
 
 ### LLM Configuration
 - `LLM_PROVIDER`: The LLM provider to use (default: openai, options: openai, anthropic, cohere, gemini, huggingface)
-- `LLM_API_KEY`: Your LLM API key (or use `OPENAI_API_KEY` for backward compatibility)
+- `LLM_API_KEY`: Your LLM API key
 - `LLM_MODEL`: The model to use (depends on the provider, default: gpt-4o)
 - `LLM_TEMPERATURE`: The temperature to use for generation (default: 0.7)
 - `EMBEDDING_MODEL`: The embedding model to use (default: text-embedding-3-small)
 - `EMBEDDING_DIMENSION`: The dimension of the embeddings (default: 1536)
 
 ### Database
-- `DATABASE_URL`: The database URL (default: sqlite:///knowledge_base.db)
+- `DATABASE_URL`: The database URL (default: postgresql://postgres:postgres@localhost:5432/knowledge_base)
 
 ### Slack Integration
 - `SLACK_BOT_TOKEN`: Your Slack bot token (optional)
@@ -52,35 +52,25 @@ A knowledge base application for EMQX that allows users to ask questions and get
 - `SLACK_SIGNING_SECRET`: Your Slack signing secret (optional)
 - `SLACK_TEAM_ID`: Your Slack team ID (optional)
 
-### EMQX Configuration
-- `EMQX_BASE_URL`: The base URL for the EMQX API (default: http://localhost:18083/api/v5)
-- `EMQX_USERNAME`: The EMQX username (default: admin)
-- `EMQX_PASSWORD`: The EMQX password (default: public)
-
 ### Feature Flags
 - `ENABLE_SLACK`: Whether to enable Slack integration (default: false)
-- `ENABLE_LOG_ANALYSIS`: Whether to enable log analysis (default: true)
+
+### Logging and Debugging
+- `LOG_LEVEL`: The logging level to use (default: INFO, options: DEBUG, INFO, WARNING, ERROR, CRITICAL)
+- `LLAMA_INDEX_VERBOSE`: Whether to show verbose LlamaIndex logs, including workflow step execution (default: false)
 
 ## API Endpoints
 
-- `POST /api/ask`: Ask a question to the knowledge base
-- `POST /api/analyze-log`: Analyze an EMQX log
 - `GET /api/health`: Health check endpoint
 
 ## Web UI
 
-The web UI is available at http://localhost:8000 and includes:
+The web UI is available at http://localhost:8000 and includes a unified chat interface that can:
 
-- A page for asking questions and getting answers
-- A page for analyzing EMQX logs
-
-## Log Analysis
-
-The log analysis feature uses LlamaIndex to analyze EMQX logs and provide troubleshooting recommendations. It can:
-
-- Extract information from EMQX logs
-- Identify issues and their potential causes
-- Provide step-by-step troubleshooting recommendations
+- Answer questions about EMQX Knowledge Base
+- Analyze EMQX logs for troubleshooting
+- Process file uploads for log analysis
+- Handle EMQX API credentials to query broker information
 
 ## Development
 

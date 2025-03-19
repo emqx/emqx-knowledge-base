@@ -244,6 +244,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "itsdangerous" },
     { name = "llama-index-core" },
+    { name = "llama-index-embeddings-openai" },
     { name = "llama-index-llms-openai" },
     { name = "openai" },
     { name = "pgvector" },
@@ -280,6 +281,7 @@ requires-dist = [
     { name = "isort", marker = "extra == 'dev'", specifier = ">=5.12.0" },
     { name = "itsdangerous", specifier = ">=2.2.0" },
     { name = "llama-index-core", specifier = ">=0.12.24.post1" },
+    { name = "llama-index-embeddings-openai", specifier = ">=0.3.1" },
     { name = "llama-index-llms-openai", specifier = ">=0.3.25" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.5.0" },
     { name = "openai", specifier = ">=1.3.0" },
@@ -576,6 +578,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/28/f7/3e4ad0693943ada4a1099fa394ebe6c06b69bd715a7ff7c6d0b091814358/llama_index_core-0.12.24.post1.tar.gz", hash = "sha256:2d0ab7e819dc064a8a9256cf2719d25fe12018fc5357e681a2e97f7b5988562c", size = 1353445 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fc/cb/014da862f7f53ad2c0b388426de06099526d7736613166c9af113d41d19f/llama_index_core-0.12.24.post1-py3-none-any.whl", hash = "sha256:cc2cb1f0508b6a7ae85dae72082a4e597e29fca349c67b7e319c2698f24cac61", size = 1610577 },
+]
+
+[[package]]
+name = "llama-index-embeddings-openai"
+version = "0.3.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "llama-index-core" },
+    { name = "openai" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a1/02/a2604ef3a167131fdd701888f45f16c8efa6d523d02efe8c4e640238f4ea/llama_index_embeddings_openai-0.3.1.tar.gz", hash = "sha256:1368aad3ce24cbaed23d5ad251343cef1eb7b4a06d6563d6606d59cb347fef20", size = 5492 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bb/45/ca55b91c4ac1b6251d4099fa44121a6c012129822906cadcc27b8cfb33a4/llama_index_embeddings_openai-0.3.1-py3-none-any.whl", hash = "sha256:f15a3d13da9b6b21b8bd51d337197879a453d1605e625a1c6d45e741756c0290", size = 6177 },
 ]
 
 [[package]]

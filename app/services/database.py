@@ -1,4 +1,5 @@
 """Database service for PostgreSQL with pg_vector."""
+
 import logging
 from typing import List, Optional, Tuple
 
@@ -16,7 +17,9 @@ class DatabaseService:
 
     def __init__(self):
         """Initialize the database service."""
-        self.pool = ConnectionPool(config.database_url, min_size=1, max_size=10, open=True)
+        self.pool = ConnectionPool(
+            config.database_url, min_size=1, max_size=10, open=True
+        )
         self._initialize_database()
 
     def _initialize_database(self):
@@ -161,7 +164,9 @@ class DatabaseService:
                     results.append((entry, similarity))
                 return results
 
-    def get_entry_by_thread(self, channel_id: str, thread_ts: str) -> Optional[KnowledgeEntry]:
+    def get_entry_by_thread(
+        self, channel_id: str, thread_ts: str
+    ) -> Optional[KnowledgeEntry]:
         """Get a knowledge entry by channel ID and thread timestamp.
 
         Args:
@@ -261,33 +266,60 @@ class DatabaseService:
             # Return an empty list on error
             return []
 
-    def get_file_attachments_by_thread(self, channel_id: str, thread_ts: str) -> List[FileAttachment]:
-        """Get all file attachments for a specific thread.
+    def get_file_attachments_by_thread(
+        self, channel_id: str, thread_ts: str
+    ) -> List[FileAttachment]:
+        """Get all file attachments for a thread.
 
         Args:
             channel_id: The Slack channel ID.
             thread_ts: The Slack thread timestamp.
 
         Returns:
-            A list of file attachments for the thread.
+            A list of file attachments.
         """
         with self.pool.connection() as conn:
             with conn.cursor(row_factory=dict_row) as cur:
                 cur.execute(
                     """
-                    SELECT id, channel_id, thread_ts, user_id, file_name, file_type,
-                           file_url, content_summary, content_text, created_at
+                    SELECT id, channel_id, thread_ts, user_id, file_name, file_type, file_url,
+                        content_summary, content_text, created_at
                     FROM file_attachments
                     WHERE channel_id = %s AND thread_ts = %s
                     """,
                     (channel_id, thread_ts),
                 )
-                return [FileAttachment.model_validate(row) for row in cur.fetchall()]
+                results = []
+                for row in cur.fetchall():
+                    results.append(FileAttachment.model_validate(row))
+                return results
+
+    def delete_knowledge(self, entry_id: int) -> bool:
+        """Delete a knowledge entry from the database.
+
+        Args:
+            entry_id: The ID of the entry to delete.
+
+        Returns:
+            True if the entry was deleted, False otherwise.
+        """
+        with self.pool.connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    DELETE FROM knowledge_entries
+                    WHERE id = %s
+                    RETURNING id
+                    """,
+                    (entry_id,),
+                )
+                result = cur.fetchone()
+                conn.commit()
+                return result is not None
 
     def close(self):
         """Close the database connection pool."""
-        if hasattr(self, 'pool') and self.pool:
-            logger.info("Closing database connection pool...")
+        if self.pool and not self.pool.closed:
             self.pool.close()
 
     def __del__(self):
