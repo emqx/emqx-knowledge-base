@@ -5,11 +5,16 @@ import sys
 import signal
 import uvicorn
 import traceback
+import threading
+import asyncio
 
 from app.config import config
 from app.utils.logging import configure_logging
 from app.api.app import app as api_app
 from app.services.database import db_service
+
+# Global variable to store the Slack thread
+slack_thread = None
 
 
 def handle_exit(signum, frame):
@@ -19,6 +24,40 @@ def handle_exit(signum, frame):
     # Close database connection pool
     db_service.close()
     sys.exit(0)
+
+
+def start_slack_service():
+    """Start the Slack service in a separate thread with its own event loop."""
+    if not config.enable_slack:
+        return
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        from app.services.slack_service import slack_service
+
+        # Create a function that sets up an event loop for the thread
+        def start_slack_with_loop():
+            # Create a new event loop for this thread
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            # Start the slack service
+            try:
+                logger.info("Starting Slack service...")
+                slack_service.start()
+            except Exception as e:
+                logger.error(f"Error in Slack service: {e}")
+                logger.error(traceback.format_exc())
+
+        # Start in a daemon thread so it gets killed when the main thread exits
+        global slack_thread
+        slack_thread = threading.Thread(target=start_slack_with_loop, daemon=True)
+        slack_thread.start()
+        logger.info("Slack service started in background thread with event loop")
+
+    except Exception as e:
+        logger.error(f"Failed to start Slack service: {e}")
+        logger.error(traceback.format_exc())
 
 
 def main():
@@ -41,6 +80,16 @@ def main():
         sys.exit(1)
 
     logger.info("Starting EMQX Knowledge Base application...")
+
+    # Log configuration details
+    logger.info(f"Environment: {config.environment}")
+    logger.info(
+        f"Slack integration: {'Enabled' if config.enable_slack else 'Disabled'}"
+    )
+
+    # Start Slack service if enabled
+    if config.enable_slack:
+        start_slack_service()
 
     # Log WebSocket configuration at debug level
     logger.debug(f"WebSocket ping interval: {config.websocket_ping_interval} seconds")

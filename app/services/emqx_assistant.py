@@ -1055,28 +1055,35 @@ class EmqxAssistantService:
                 workflow.file_attachments = all_file_attachments
 
             # Run the workflow with the question
-            handler = workflow.run(user_input=question, ctx=ctx)
+            handler = await workflow.run(user_input=question, ctx=ctx)
 
             # Process the events
             result = ""
             sources = []
             file_sources = []
 
-            async for event in handler.stream_events():
-                if isinstance(event, StopEvent):
-                    result = getattr(event, "message", "")
-                elif isinstance(event, InputRequiredEvent):
-                    # In this API implementation, we can't interact with the user directly
-                    # So we'll auto-respond with a default value
-                    handler.ctx.send_event(HumanResponseEvent(response=""))
-                elif (
-                    isinstance(event, Event) and hasattr(event, "token") and event.token
-                ):
-                    # If we have token streaming (for UI), we could handle that here
-                    pass
+            # If handler is a StopEvent, extract the message directly
+            if isinstance(handler, StopEvent):
+                result = getattr(handler, "message", "")
+            else:
+                # Otherwise, it's a workflow handler with stream_events
+                async for event in handler.stream_events():
+                    if isinstance(event, StopEvent):
+                        result = getattr(event, "message", "")
+                    elif isinstance(event, InputRequiredEvent):
+                        # In this API implementation, we can't interact with the user directly
+                        # So we'll auto-respond with a default value
+                        handler.ctx.send_event(HumanResponseEvent(response=""))
+                    elif (
+                        isinstance(event, Event)
+                        and hasattr(event, "token")
+                        and event.token
+                    ):
+                        # If we have token streaming (for UI), we could handle that here
+                        pass
 
-            # Wait for the handler to complete
-            await handler
+                # Wait for the handler to complete
+                await handler
 
             # Extract source information from similar entries
             for entry, similarity in similar_entries:

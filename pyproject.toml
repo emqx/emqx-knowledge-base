@@ -23,6 +23,7 @@ dependencies = [
     "itsdangerous>=2.2.0",
     "PyJWT>=2.8.0",
     "llama-index-embeddings-openai>=0.3.1",
+    "ping3>=4.0.8",
 ]
 
 [project.optional-dependencies]

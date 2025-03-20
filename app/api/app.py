@@ -19,6 +19,20 @@ async def lifespan(app: FastAPI):
     """Lifespan context manager for FastAPI application."""
     # Startup
     logger.info("Application startup: initializing services...")
+
+    # Log available routes
+    routes = [
+        {
+            "path": route.path,
+            "name": route.name,
+            "methods": ["WS"]
+            if hasattr(route, "path") and "websocket" in route.path
+            else getattr(route, "methods", []),
+        }
+        for route in app.routes
+    ]
+    logger.info(f"Available routes: {routes}")
+
     yield
     # Shutdown
     logger.info("Application shutdown: closing database connections...")
@@ -57,23 +71,6 @@ app.include_router(api_router, prefix="/api")
 
 # Add WebSocket routes at root level
 app.include_router(ws_router)
-
-
-# Log available routes on startup
-@app.on_event("startup")
-async def startup_event():
-    """Log available routes on startup."""
-    routes = [
-        {
-            "path": route.path,
-            "name": route.name,
-            "methods": getattr(route, "methods", ["WS"])
-            if "websocket" in route.path
-            else route.methods,
-        }
-        for route in app.routes
-    ]
-    logger.info(f"Available routes: {routes}")
 
 
 @app.get("/health")

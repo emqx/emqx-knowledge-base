@@ -3,6 +3,8 @@
 import logging
 import re
 import asyncio
+import threading
+import traceback
 
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
@@ -66,9 +68,8 @@ class SlackService:
         # Check if this is a request to analyze the current thread
         # This check needs to come before the general help request check
         if self._is_analyze_thread_request(message):
-            asyncio.create_task(
-                self._analyze_thread(channel_id, thread_ts, user_id, say)
-            )
+            # Use a synchronous wrapper to run the async function
+            self._run_async_analyze_thread(channel_id, thread_ts, user_id, say)
             return
 
         # Check if this is a general help request
@@ -77,7 +78,74 @@ class SlackService:
             return
 
         # Otherwise, treat it as a question
-        asyncio.create_task(self._process_input(text, channel_id, thread_ts, say))
+        # Use a synchronous wrapper to run the async function
+        self._run_async_process_input(text, channel_id, thread_ts, say)
+
+    def _run_async_analyze_thread(self, channel_id, thread_ts, user_id, say):
+        """Synchronous wrapper to run the async analyze_thread function."""
+        try:
+            # Helper function to run in a new event loop
+            def run_in_new_loop():
+                # Create and set a new event loop
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+                try:
+                    # Run the async function to completion with proper awaiting
+                    coroutine = self._analyze_thread(
+                        channel_id, thread_ts, user_id, say
+                    )
+                    loop.run_until_complete(coroutine)
+                except Exception as e:
+                    logger.error(f"Error in analyze_thread: {e}")
+                    logger.error(traceback.format_exc())
+                finally:
+                    # Close the loop
+                    loop.close()
+
+            # Run in a separate thread to avoid blocking
+            thread = threading.Thread(target=run_in_new_loop)
+            thread.daemon = True
+            thread.start()
+
+        except Exception as e:
+            logger.error(f"Error running async analyze_thread: {e}")
+            say(
+                text="I encountered an error while trying to analyze this thread.",
+                thread_ts=thread_ts,
+            )
+
+    def _run_async_process_input(self, text, channel_id, thread_ts, say):
+        """Synchronous wrapper to run the async process_input function."""
+        try:
+            # Helper function to run in a new event loop
+            def run_in_new_loop():
+                # Create and set a new event loop
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+                try:
+                    # Run the async function to completion with proper awaiting
+                    coroutine = self._process_input(text, channel_id, thread_ts, say)
+                    loop.run_until_complete(coroutine)
+                except Exception as e:
+                    logger.error(f"Error in process_input: {e}")
+                    logger.error(traceback.format_exc())
+                finally:
+                    # Close the loop
+                    loop.close()
+
+            # Run in a separate thread to avoid blocking
+            thread = threading.Thread(target=run_in_new_loop)
+            thread.daemon = True
+            thread.start()
+
+        except Exception as e:
+            logger.error(f"Error running async process_input: {e}")
+            say(
+                text="I encountered an error while trying to answer your question.",
+                thread_ts=thread_ts,
+            )
 
     def _is_help_request(self, message: str) -> bool:
         """Check if the message is a general help request.
